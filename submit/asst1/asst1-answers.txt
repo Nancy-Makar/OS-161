@@ -45,17 +45,43 @@ Question 3-> The kernel and user-level code share the same C library cod. So of 
 Question 4 -> What might invalidate that configuration and make you need/want to rerun it is being in the wrong place, which is not in kern.
 Conigure configures the target hardware and machine type and the optimize/debug flag. 
 
-Question 5 -> 
+Question 5 -> A function is dependent if it is code relies on storing ins pecific addresses, or mapping device registers to specific addresses in the hardware or installing exception handlers at specific addresse (a.k.a hardware functionality).
+It is important to separate machine-dependent code from machine-independent so when you transfer when machine to another you know what pieces of code would work on the new machine (machine-independent) and what other piecese would not work and needs to be w=re-written (machine-depdndent).
 
 Question 6 -> the trapframe struct has 37 variables to save all processor registers that might contain user data in addition to some data about the cause of the exception (stored in tf_cause) and the contenst of the PC register when the exception occurred (store in tf_epc) and dummy registers for gdb and other registers.
 
 Question 7 -> If you changed the configuration of the kernel or change the hearder files or the autoconf.h, because you will have to recompile and hence re-run.
 
-Question 8 -> If you change any of the source files that are scripted in kern/compile/DUMBVM
+Question 8 -> If you change any of the source files.
 
-Question 9 -> 
+Question 9 -> Whenever you make changes to the kernel code.
 
-Question 10 ->
+Question 10 -> In the file kern/startup/menu.c we add a function that prints ¨Hello World!¨, like this :
+cmd_helloWorld(int nargs, char **args)
+{
+	(void)nargs;
+	(void)args;
+
+	kprintf(¨Hello world!\n¨);
+
+	return 0;
+}
+Then in the same file in the char array opsmenu, we add something like this:
+[hello]       Print hello world                     
+and in the cmdtable below we add something like this:
+{ "hello",	cmd_helloWorld },
+
+Question 11 -> The standard utilities that are present on my machine are not compiled for the OS161 OS or the MIPS architecture (as we have seen that some utilities are machine-specific). In addition, my machine will be using different system calls. 
+
+Question 12 -> as seen in userland/lib/crt0/mips/crt0.S, the return value is transferred from V0 to S0 (line 85) and then from s0 to a0 (line 85). 
+
+Question 13 -> 1) os161/src/kern/include/kern/syscall.h - We add and entry for the new system call
+	       2) os161/src/kern/arch/mips/syscall/syscall.c - Add a case for the new system call
+	       3) os161/src/kern/include/syscall.h	- We add a prototype for IN-KERNEL entry point to implement the new system call
+	       4) os161/src/kern/syscall 	- We create a new .c file for the new system call
+Then in 
+kern/conf run ¨./config DUMBVMin¨ and in /os161/src/kern/compile/DUMBVM run : bmake depend (assuming a new source file will be added), bmake and bmake install
+
 
 Question 14 -> start
 
@@ -71,7 +97,7 @@ Question 17 -> start.S sets the exception handler, flushes the instruction cache
 kmain calls ¨boot()¨
 boot() prints some statements and then initializes RAM, the  process information pseudo-file system, threads, the hardlocks, devices and pseudo devices and VM. boot() then returns to kmain which then calls menu().
 
-Question 18 -> jal kmain
+Question 18 -> jal kmain , which calls main
 
 Question 19 -> 
 109             ram_bootstrap();
@@ -95,4 +121,24 @@ $1 = {c_self = 0x8003af00, c_number = 0, c_hardware_number = 0, c_curthread = 0x
   c_runqueue = {tl_head = {tln_prev = 0x0, tln_next = 0x8003af44, tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af38, tln_next = 0x0, tln_self = 0x0}, tl_count = 0},
   c_runqueue_lock = {splk_lock = 0, splk_holder = 0x0}, c_ipi_pending = 0, c_shootdown = {{ts_placeholder = 0} <repeats 16 times>}, c_numshootdown = 0, c_ipi_lock = {
     splk_lock = 0, splk_holder = 0x0}}
+
+Question 22 ->(gdb) cpuarray allcpus
+0 cpus
+
+(gdb) print allcpus
+$1 = {arr = {v = 0x0, num = 0, max = 0}}
+
+
+Question 23 ->
+(gdb) cpuarray allcpus
+1 cpus
+cpu 0:
+$3 = {c_self = 0x8003af00, c_number = 0, c_hardware_number = 0, c_curthread = 0x8003bf80, c_zombies = {tl_head = {tln_prev = 0x0, tln_next = 0x8003af1c,
+      tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af10, tln_next = 0x0, tln_self = 0x0}, tl_count = 0}, c_hardclocks = 1, c_spinlocks = 0, c_isidle = false,
+  c_runqueue = {tl_head = {tln_prev = 0x0, tln_next = 0x8003af44, tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af38, tln_next = 0x0, tln_self = 0x0}, tl_count = 0},
+  c_runqueue_lock = {splk_lock = 0, splk_holder = 0x0}, c_ipi_pending = 0, c_shootdown = {{ts_placeholder = 0} <repeats 16 times>}, c_numshootdown = 0, c_ipi_lock = {
+    splk_lock = 0, splk_holder = 0x0}}
+    
+ (gdb) print allcpus
+$2 = {arr = {v = 0x80039fe0, num = 1, max = 4}}
 
