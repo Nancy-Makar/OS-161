@@ -32,3 +32,67 @@ Date:   Sat Sep 18 20:31:44 2021 -0700
 ------------------------------------------
 asst1-start
 ------------------------------------------
+Step 5:
+Question 1 -> The first line of OS/161 code that is executed when a trap occurs is in the file 
+/os161/src/kern/arch/mips/locore/exceptions-mips1.S
+The control is transferred to the mips_trap function (in kern/arch/mips/locore/trap.c) whish is called by the trap handler (in os161/src/kern/arch/mips/locore/exceptions-mips1.S)
+The trap handler determins the type od trap, if it is an interrupt it calls the interrupt handler function, mainbus_interrubt, which is in kern/arch/sys161/dev/lamebus_machdep.c
+
+Question 2 -> The code that invokes system calls and causes traps is in kern/arch/mips/locore/trap.c at lines 216-226 and the syscall() fuction is called at line 216.
+
+Question 3-> The kernel and user-level code share the same C library cod. So of the user decided to edit some of the libarary functions he can edit the files in userland without affecting the libarary used by the kernel since the user doe not have access to it.
+
+Question 4 -> What might invalidate that configuration and make you need/want to rerun it is being in the wrong place, which is not in kern.
+Conigure configures the target hardware and machine type and the optimize/debug flag. 
+
+Question 5 -> 
+
+Question 6 -> the trapframe struct has 37 variables to save all processor registers that might contain user data in addition to some data about the cause of the exception (stored in tf_cause) and the contenst of the PC register when the exception occurred (store in tf_epc) and dummy registers for gdb and other registers.
+
+Question 7 -> If you changed the configuration of the kernel or change the hearder files or the autoconf.h, because you will have to recompile and hence re-run.
+
+Question 8 -> If you change any of the source files that are scripted in kern/compile/DUMBVM
+
+Question 9 -> 
+
+Question 10 ->
+
+Question 14 -> start
+
+Question 15 -> addiu sp, sp, -24
+
+Question 16 -> (gdb) info breakpoints
+Num     Type           Disp Enb Address    What
+1       breakpoint     keep y   0x800139e4 in kmain at ../../main/main.c:211
+        breakpoint already hit 1 time
+2       breakpoint     keep y   0x800139ec in kmain at ../../main/main.c:213
+
+Question 17 -> start.S sets the exception handler, flushes the instruction cache, set up the status register, loads the CPU number into the PTBASE field of the CONTEXT register and load the GP register the calls ¨kmain¨
+kmain calls ¨boot()¨
+boot() prints some statements and then initializes RAM, the  process information pseudo-file system, threads, the hardlocks, devices and pseudo devices and VM. boot() then returns to kmain which then calls menu().
+
+Question 18 -> jal kmain
+
+Question 19 -> 
+109             ram_bootstrap();
+(gdb) n
+110             proc_bootstrap();
+(gdb) n
+111             thread_bootstrap();
+(gdb) n
+112             hardclock_bootstrap();
+(gdb) n
+113             vfs_bootstrap();
+(gdb) n
+114             kheap_nextgeneration();
+
+Question 20 -> (gdb) print *bootcpu
+Cannot access memory at address 0x80000
+
+Question 21 -> print *bootcpu
+$1 = {c_self = 0x8003af00, c_number = 0, c_hardware_number = 0, c_curthread = 0x8003bf80, c_zombies = {tl_head = {tln_prev = 0x0, tln_next = 0x8003af1c,
+      tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af10, tln_next = 0x0, tln_self = 0x0}, tl_count = 0}, c_hardclocks = 0, c_spinlocks = 0, c_isidle = false,
+  c_runqueue = {tl_head = {tln_prev = 0x0, tln_next = 0x8003af44, tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af38, tln_next = 0x0, tln_self = 0x0}, tl_count = 0},
+  c_runqueue_lock = {splk_lock = 0, splk_holder = 0x0}, c_ipi_pending = 0, c_shootdown = {{ts_placeholder = 0} <repeats 16 times>}, c_numshootdown = 0, c_ipi_lock = {
+    splk_lock = 0, splk_holder = 0x0}}
+
