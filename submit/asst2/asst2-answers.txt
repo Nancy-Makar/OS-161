@@ -1,0 +1,15 @@
+Step 2:
+
+Question 1 -> thread_exit() calls:
+- proc_remthread(cur_thread) which turns off interrupts on th elocal cpu and detach the thread from the processor. 
+- thread_checkstack(curr_thread) to make sure there is no stack overflow, and destroys its virtual memory space.
+- splhigh() to disable interrupts
+- thread_switch(S_ZOMBIE, NULL, NULL) which queues the thread and changes its state to S_ZOMBIE state and another thread is selected and switched to.
+- calls panic if it runs again before it dies.
+
+When a thread sleeps, wchan_sleep mkaes sure that the thread is not in an interrupt handler and that is holds only the spinlock and no other locks and the state of thread is changed to S_SLEEP by thread_switch and the thread is queued in the wainting channel WC protected by the spinlock LK and the unlocks the LK lock. Then wchan_sleep acquires the lock LK again before returning.
+
+
+Question 2 -> thread_switch(**) which is machine-independent and switchframe_switch(**) which is an assembler-level context switch. (dependent ??)
+
+Question 3 -> S_RUN, S_READY , S_ZOMBIE, S_SLEEP
