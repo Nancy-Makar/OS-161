@@ -7,9 +7,22 @@ Question 1 -> thread_exit() calls:
 - thread_switch(S_ZOMBIE, NULL, NULL) which queues the thread and changes its state to S_ZOMBIE state and another thread is selected and switched to.
 - calls panic if it runs again before it dies.
 
-When a thread sleeps, wchan_sleep mkaes sure that the thread is not in an interrupt handler and that is holds only the spinlock and no other locks and the state of thread is changed to S_SLEEP by thread_switch and the thread is queued in the wainting channel WC protected by the spinlock LK and the unlocks the LK lock. Then wchan_sleep acquires the lock LK again before returning.
+When a thread sleeps, wchan_sleep mkaes sure that the thread is not in an interrupt handler and that is holds only the spinlock and no other locks and the state
+of thread is changed to S_SLEEP by thread_switch and the thread is queued in the wainting channel WC protected by the spinlock LK and the unlocks the LK lock. 
+Then wchan_sleep acquires the lock LK again before returning.
 
 
 Question 2 -> thread_switch(**) which is machine-independent and switchframe_switch(**) which is an assembler-level context switch. (dependent ??)
 
-Question 3 -> S_RUN, S_READY , S_ZOMBIE, S_SLEEP
+Question 3 ->
+S_RUN:		The thread is running
+S_READY: 	The thread is ready to run
+S_ZOMBIE:	The thread is exited but not yet deleted
+S_SLEEP:	The thread is sleeping
+
+Question 4 -> Turning interrupts off means that even if an interrupt occurs the interrupt handler is not called unless the interrupts are turned back on. Interrupts are turned off
+uisng the splhigh() function (set priority level high) and turned on using spl0() (set priority level zero). Interrupts are important in a thread subsystem code as they 
+ensure atomic access, where a thread, for example, cannot be interrupted during a context swtich as it would be a problem the schedular try to run a thread that has not finished being set
+or setting up its stack. Similarly, interrupts are turned off in thread_exit() so thread are not left in invalid states.
+
+Question 5 -> 
