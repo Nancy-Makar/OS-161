@@ -12,7 +12,7 @@ of thread is changed to S_SLEEP by thread_switch and the thread is queued in the
 Then wchan_sleep acquires the lock LK again before returning.
 
 
-Question 2 -> thread_switch(**) which is machine-independent and switchframe_switch(**) which is an assembler-level context switch. (dependent ??)
+Question 2 -> thread_switch(**) which is machine-independent and switchframe_switch(**) which is an assembler-level context switch.
 
 Question 3 ->
 S_RUN:		The thread is running
@@ -25,4 +25,26 @@ uisng the splhigh() function (set priority level high) and turned on using spl0(
 ensure atomic access, where a thread, for example, cannot be interrupted during a context swtich as it would be a problem the schedular try to run a thread that has not finished being set
 or setting up its stack. Similarly, interrupts are turned off in thread_exit() so thread are not left in invalid states.
 
-Question 5 -> 
+Question 5 -> When a thread wakes up another thread, the sleeping thread is removed 
+from the wait cahnnel and make_runnable() places it in the runqueue. The thread remains in the runqueue
+until a context switch is called and the schedular returns that thread.
+
+Question 6 ->
+     thread_switch(): picks the next thread on the runqueue.
+     schedule(): queues the threads in a round-robin fashion.
+
+Question 7 -> schedule(void) queues threads in a round-robin fashion and thread_switch() picks the next thread to run on the runqueue.
+
+Question 8 -> The hardware timer causes both functions: scehduel() and thread_consider_migration() (a function that moves threads across to those other other CPUs, 
+if the current CPU is busy and other CPUs are idle, or less busy). And the hardware independent function that is called on a timer interrupt is hardclock().
+
+Question 9 -> 
+thread_sleep() in the P function of the semaphore makes the current thread sleep until the semaphore count (sem_count) is greater than zero.
+thread_wakeup() in the V function of the semaphore wakes up all the sleeping threads waiting on the current semaphore.
+They are syncronized this way so that no thread will sleep forever.
+Both functions get the address as an argument so that when thread_wakeup() is called, it only wakes up the threads associated with this specific semaphore.
+
+Question 10 -> The wchan's associated spinlock is kept locked from the point the caller of wchan_sleep locked it until the thread is placed on the list,
+to avoid a race with someone else calling wchan_wake(). So wchan_sleep() acquires the lock then thread_switch() keeps it locked till the thread is placed on
+the waiting channel then realese the lock.
+
