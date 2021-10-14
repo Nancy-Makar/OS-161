@@ -137,6 +137,7 @@ flowerkiller(void *p, unsigned long arg) //not a big lock solution, just 4 semap
 {
 	(void)p;
 	(void)arg;
+	
 
 	kprintf("Lord FlowerKiller thread starting\n");
 	/* Implement this function */
