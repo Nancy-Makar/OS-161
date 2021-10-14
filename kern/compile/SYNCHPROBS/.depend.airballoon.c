@@ -5,4 +5,4 @@ airballoon.o: ../../synchprobs/airballoon.c ../../include/types.h \
  ../../include/spinlock.h includelinks/machine/spinlock.h \
  ../../include/threadlist.h includelinks/machine/thread.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
- ../../include/test.h
+ ../../include/test.h ../../include/synch.h
