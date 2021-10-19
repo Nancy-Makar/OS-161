@@ -31,7 +31,7 @@
 #define _KERN_TYPES_H_
 
 /* Get machine-dependent types. */
-#include <kern/machine/types.h>
+#include <kern/machine/types.h> 
 
 /*
  * Machine-independent types visible to user level.
