@@ -20,15 +20,14 @@ int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd)
     //Find the current process
     p = curthread->t_proc;
     
-    spinlock_acquire(&p->p_lock);
-
     //If the current file table is null, we know we have to create it
     if (p->p_fdtable == NULL)
     {
-        p->p_fdtable = fd_table_create();
+        err = fd_table_create(&table);
+        if (err) {
+            return err;
+        }
     }
-    table = p->p_fdtable;
-    spinlock_release(&p->p_lock);
 
 
     //Take care opening the file name in the kernel
@@ -66,7 +65,7 @@ int sys_close(int fd) {
     struct proc     *p;
     struct fd_table *table;
     struct fobj     *file;
-    //int             err;
+    int             err;
 
     p = curthread->t_proc;
 
@@ -74,11 +73,11 @@ int sys_close(int fd) {
     table = p->p_fdtable;
     spinlock_release(&p->p_lock);
 
-    file = fd_table_get(table, fd);
-    // if (err) {
-    //     return err;
-    // } 
-    //Remove the entry from the table
+    err = fd_table_get(table, fd, &file);
+
+    if (err) {
+        return err;
+    }
     fd_table_remove(table, fd);
     lock_acquire(file->fobj_lk);
 

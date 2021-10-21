@@ -11,20 +11,19 @@ struct fd_table
 {
     struct fobj *files[32];
     struct lock *fd_table_lk;
- };
+};
 
- struct fobj {
+struct fobj {
      struct vnode *vn;
      mode_t mode;
      int offset;
      int refcount;
      struct lock *fobj_lk;
- };
+};
 
- int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd);
- int fd_table_remove(struct fd_table *table, int fd);
- struct fobj *fd_table_get(struct fd_table *table, int fd);
-
-     struct fd_table *fd_table_create(void);
+int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd);
+int fd_table_remove(struct fd_table *table, int fd);
+int fd_table_get(struct fd_table *table, int fd, struct fobj **file);
+int fd_table_create(struct fd_table **table);
 
 #endif
