@@ -110,7 +110,10 @@ syscall(struct trapframe *tf)
 		break;
 
 	    case SYS_open:
-		//err = //
+		err = sys_open((userptr_t)tf->tf_a0,
+				tf->tf_a1,
+				tf->tf_a2,
+				&retval);
 		break;
 
 		case SYS_read:
@@ -123,6 +126,7 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_close:
+		err = sys_close((userptr_t)tf->tf_a0);
 		break;
 
 		case SYS_dup2:
