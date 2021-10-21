@@ -26,10 +26,10 @@ int fd_table_create(struct fd_table **fd_table) {
     lock_acquire(table->fd_table_lk);
     
     //Create STDIN
-    char path[] = "con:\0";
+    char path1[] = "con:";
     struct fobj *stdin = kmalloc(sizeof(struct fobj));
     struct vnode *vn_stdin;
-    err = vfs_open((char*) path, O_RDONLY, 0, &vn_stdin);
+    err = vfs_open((char*) path1, O_RDONLY, 0, &vn_stdin);
     if (err) {
         return err;
     }
@@ -39,9 +39,10 @@ int fd_table_create(struct fd_table **fd_table) {
     stdin->fobj_lk = lock_create("stdin");
     table->files[0] = stdin;
 
+    char path2[] = "con:";
     struct fobj *stderr = kmalloc(sizeof(struct fobj));
     struct vnode *vn_stderr;
-    err = vfs_open((char*) path, O_WRONLY, 0, &vn_stderr);
+    err = vfs_open((char*) path2, O_WRONLY, 0, &vn_stderr);
     if (err) {
         return err;
     }
@@ -51,9 +52,10 @@ int fd_table_create(struct fd_table **fd_table) {
     stderr->fobj_lk = lock_create("stderr");
     table->files[2] = stderr;
 
+    char path3[] = "con:";
     struct fobj *stdout = kmalloc(sizeof(struct fobj));
     struct vnode *vn_stdout;
-    err = vfs_open((char*) path, O_WRONLY, 0, &vn_stdout);
+    err = vfs_open((char*) path3, O_WRONLY, 0, &vn_stdout);
     if (err) {
         return err;
     }
