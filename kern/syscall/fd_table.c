@@ -88,7 +88,7 @@ int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd) {
     }
     lock_release(table->fd_table_lk);
     //Error for when a table is full
-    return ENFILE;
+    return EMFILE;
 }
 
 
