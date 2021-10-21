@@ -4,8 +4,8 @@
 #ifndef _FDTABLE_H_
 #define _FDTABLE_H_
 
-#define MAX_FILE_NAME = 50;
-#define MAX_OPEN_FILE = 32;
+#define MAX_FILE_NAME 50
+#define MAX_OPEN_FILES 32
 
 struct fd_table
 {
@@ -21,10 +21,10 @@ struct fd_table
      struct lock *fobj_lk;
  };
 
- int fd_table_add(int fd, struct fobj *fobj);
+ int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd);
+ int fd_table_remove(struct fd_table *table, int fd);
+ struct fobj *fd_table_get(struct fd_table *table, int fd);
 
- int fd_table_remove(int fd);
-
- struct fd_table* fd_table_create(void);
+     struct fd_table *fd_table_create(void);
 
 #endif

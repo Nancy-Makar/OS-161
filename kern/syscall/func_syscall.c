@@ -2,13 +2,14 @@
 #include <lib.h>
 #include <clock.h>
 #include <synch.h>
+#include <current.h>
 #include <copyinout.h>
 #include <syscall.h>
 #include <fd_table.h>
 #include <vfs.h>
 #include <proc.h>
 
-int sys_open(const char *filename, int flags, mode_t mode, int *fd)
+int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd)
 {
     struct      proc *p;
     struct      fd_table *table;
@@ -17,16 +18,18 @@ int sys_open(const char *filename, int flags, mode_t mode, int *fd)
     int         err;
 
     //Find the current process
-    p = currthread->td_proc;
+    p = curthread->t_proc;
     
-    spinlock_acquire(p->lock);
+    spinlock_acquire(&p->p_lock);
 
     //If the current file table is null, we know we have to create it
-    if (p->fd_table == NULL) {
-        p->fd_table = fd_table_create(void);
+    if (p->p_fdtable == NULL)
+    {
+        p->p_fdtable = fd_table_create();
     }
-    table = p->fd_table;
-    spinlock_release(p->lock);
+    table = p->p_fdtable;
+    spinlock_release(&p->p_lock);
+
 
     //Take care opening the file name in the kernel
     err = copyinstr(filename, fobjname, sizeof(fobjname), NULL);
@@ -36,7 +39,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *fd)
 
     //Open the file and get the associated vnode
     struct vnode *vn;
-    err = vfs_open(filename, flags, mode, &vn);
+    err = vfs_open(fobjname, flags, mode, &vn);
     if (err) {
         return err;
     }
@@ -50,7 +53,7 @@ int sys_open(const char *filename, int flags, mode_t mode, int *fd)
     newfile->fobj_lk = lock_create("fileobjectlk");
     
     //Add our new entry into the table
-    err = fd_table_add(fd, newfile, fd);
+    err = fd_table_add(table, newfile, fd);
     if (err) {
         return err;
     }
@@ -63,18 +66,18 @@ int sys_close(int fd) {
     struct proc     *p;
     struct fd_table *table;
     struct fobj     *file;
-    int             err;
+    //int             err;
 
-    p = currthread->td_proc;
+    p = curthread->t_proc;
 
-    spinlock_acquire(p->lock);
-    table = p->table;
-    spinlock_release(p->lock);
+    spinlock_acquire(&p->p_lock);
+    table = p->p_fdtable;
+    spinlock_release(&p->p_lock);
 
     file = fd_table_get(table, fd);
-    if (err) {
-        return err;
-    } 
+    // if (err) {
+    //     return err;
+    // } 
     //Remove the entry from the table
     fd_table_remove(table, fd);
     lock_acquire(file->fobj_lk);

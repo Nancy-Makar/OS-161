@@ -447,3 +447,6 @@ file		test/synchtest.c
 file		test/malloctest.c
 file		test/fstest.c
 optfile net	test/nettest.c
+
+file        syscall/func_syscall.c 
+file        syscall/fd_table.c
