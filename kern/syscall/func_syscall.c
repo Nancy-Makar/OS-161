@@ -339,6 +339,7 @@ int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
     //Increase the reference count
     lock_acquire(file->fobj_lk);
     file->refcount++;
+    VOP_INCREF(file->vn);
     lock_release(file->fobj_lk);
 
     err = fd_table_add(table, file, &newfd);
@@ -378,31 +379,35 @@ int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
 //     return 0;
 // }
 
-// int __getcwd(char *buf, size_t buflen){
+int sys_getcwd(userptr_t buf, size_t buflen, int *dataread){
 
-//     char fobjname[MAX_FILE_NAME];
-//     int err;
-//     struct proc *p;
+    int err;
+    char *kbuf = (char*) kmalloc(buflen);
 
-//     p = curthread->t_proc;
+    //Ensures buf is safe and stores it into kbuf
+    err = copyin((const_userptr_t) buf, kbuf, buflen);
+    if (err) {
+        return err;
+    }
 
-//     struct uio f_uio;
-//     struct iovec f_iovec;
-//     err = uio_kinit(&f_iovec, &f_uio, buf, buflen, 0, UIO_READ);
 
-//     err = copyinstr(&buf, fobjname, sizeof(fobjname), NULL);
-//     if (err)
-//     {
-//         return err;
-//     }
+    struct uio f_uio;
+    struct iovec f_iovec;
 
-//     spinlock_acquire(&p->p_lock);
-//     err = vfs_getcwd(f_uio);
-//     if(err){
-//         spinlock_release(&p->p_lock);
-//         return err;
-//     }
-//     spinlock_release(&p->p_lock);
-//     return buflen;
+    uio_kinit(&f_iovec, &f_uio, kbuf, buflen, 0, UIO_READ);
 
-// }
+    err = vfs_getcwd(&f_uio);
+    if(err){
+        return err;
+    }
+
+   //Amount read = buflen - amount of data remaining in uio
+    *dataread = buflen - f_uio.uio_resid;
+
+    err = copyout(kbuf, (userptr_t) buf, *dataread); 
+    kfree(kbuf);
+    if (err) {
+        return err;
+    }
+    return 0;
+}
