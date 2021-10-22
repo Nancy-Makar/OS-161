@@ -265,13 +265,14 @@ simultaneous_write_test()
 	if (rv<0) {
 		err(1, "%s: write", file2);
 	}
-	printf("Hello !!!!@@#@#\n");
-	/* Rewind both files */
+	int fad = SEEK_CUR;
+	printf("%d",fad);
 	lseek_ret = lseek(fd1, -(40-seekpos), SEEK_CUR);
 	if (lseek_ret != seekpos) {
+		printf("lseek_ret %lld \n", lseek_ret);
+		printf("seekpos %d \n", seekpos);
 		err(1, "%s: lseek", file1);
 	}
-	printf("Tomato\n");
 	lseek_ret = lseek(fd2, seekpos, SEEK_SET);
 	if (lseek_ret != seekpos) {
 		err(1, "%s: lseek", file2);

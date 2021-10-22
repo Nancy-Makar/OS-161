@@ -36,6 +36,7 @@
 #include <current.h>
 #include <syscall.h>
 #include <limits.h>
+#include <copyinout.h>
 
 
 /*
@@ -81,6 +82,8 @@ syscall(struct trapframe *tf)
 {
 	int callno;
 	int32_t retval;
+	//When the results bigger than 32-bits
+	int64_t retval2;
 	int err;
 
 	KASSERT(curthread != NULL);
@@ -98,12 +101,15 @@ syscall(struct trapframe *tf)
 	 * like write.
 	 */
 
+
+	//Only for lseek
 	retval = 0;
+	retval2 = 0;
 	off_t arg2 = tf->tf_a2;
 	off_t arg3 = tf->tf_a3;
-	off_t pos = (arg2 << 32) |arg3;
-	int whence = *((int*) tf->tf_sp + 16);
-
+	off_t pos = (arg2 << 32) | arg3;
+	int whence;
+	bool two_reg_return = false;
 
 	switch (callno) {
 	    case SYS_reboot:
@@ -137,18 +143,23 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_lseek:
-		
+			//Get the value of whence off the stack
+			copyin((const_userptr_t)(tf->tf_sp + 16), &whence, sizeof(int));
 			err = sys_lseek(tf->tf_a0,
 					pos,
 					whence,
-					&retval);
+					&retval2);
+			//Signal that we have to load the return value into two registers
+			two_reg_return = true;
 		break;
-
 		case SYS_close:
 		err = sys_close(tf->tf_a0);
 		break;
 
 		case SYS_dup2:
+		err = sys_dup2(tf->tf_a0,
+						tf->tf_a1,
+						&retval);
 		break;
 
 		case SYS_chdir:
@@ -175,8 +186,14 @@ syscall(struct trapframe *tf)
 	}
 	else {
 		/* Success. */
-		tf->tf_v0 = retval;
-		tf->tf_a3 = 0;      /* signal no error */
+		if (two_reg_return) {
+			tf->tf_v0 = (int32_t) (retval2 >> 32);
+			tf->tf_v1 = (int32_t) (retval2);
+			tf->tf_a3 = 0;      /* signal no error */
+		} else {
+			tf->tf_v0 = retval;
+			tf->tf_a3 = 0;      /* signal no error */
+		}
 	}
 
 	/*

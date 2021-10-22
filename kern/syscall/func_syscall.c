@@ -240,7 +240,7 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
 }
 
 
-int sys_lseek(int fd, off_t pos, int whence, int32_t *new_pos) {
+int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) {
 
     struct proc *p;
     struct fd_table *table;
@@ -302,50 +302,52 @@ int sys_lseek(int fd, off_t pos, int whence, int32_t *new_pos) {
     }
 }
 
-// int dup2(int oldfd, int newfd){
-//     struct proc *p;
-//     struct fd_table *table;
-//     struct fobj *file;
-//     int err;
+int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
+    struct proc *p;
+    struct fd_table *table;
+    struct fobj *file;
+    struct fobj *file2;
+    int err;
 
-//     p = curthread->t_proc;
+    if (newfd > MAX_OPEN_FILES || newfd < 0){
+         return EBADF;
+    }
+    if (oldfd > MAX_OPEN_FILES || oldfd < 0){
+        return EBADF;
+    }
 
-    
+    if(oldfd == newfd)
+        return 0;
 
-//     spinlock_acquire(&p->p_lock);
-//     table = p->p_fdtable;
-//     err = fd_table_get(table, oldfd, &file);
-//     if (err)
-//     {
-//         spinlock_release(&p->p_lock);
-//         return err; // EBADF
-//     }
-//     spinlock_release(&p->p_lock);
+    p = curthread->t_proc;
 
-//     if (newfd > OPEN_MAX || fd < 0){
-//          return EBADF;
-//      }
+    spinlock_acquire(&p->p_lock);
+    table = p->p_fdtable;
+    spinlock_release(&p->p_lock);
+    err = fd_table_get(table, oldfd, &file);
+    if (err) {
+        return err;
+    }
+    //Check if newfd points to an open file 
+    if(!fd_table_get(table, newfd, &file2)){
+        //If it does point to an open file, lets close that file
+        err = sys_close(newfd);
+        if(err){
+           return err;
+       }
+    }
+    //Increase the reference count
+    lock_acquire(file->fobj_lk);
+    file->refcount++;
+    lock_release(file->fobj_lk);
 
-//      if(oldfd == newfd)
-//         return 0;
-
-//      lock_acquire(table->fd_table_lk);
-
-//     if(!fd_table_get(table, oldfd, &file)){
-//        err = sys_close(oldfd);
-//        if(err){
-//            lock_release(table->fd_table_lk);
-//            return err;
-//        }
-//     }
-//      err = fd_table_add(table, file, newfd);
-//      if(err){
-//          lock_release(table->fd_table_lk);
-//          return err;
-//      }
-//      lock_release(table->fd_table_lk);
-//      return 0;
-// }
+    err = fd_table_add(table, file, &newfd);
+    if(err){
+        return err;
+    }
+    *newfdreturn = newfd;
+    return 0;
+}
 
 // int chdir(const char *pathname){
 
