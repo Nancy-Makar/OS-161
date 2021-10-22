@@ -12,6 +12,8 @@
 #include <uio.h>
 #include <kern/errno.h>
 #include <kern/fcntl.h>
+#include <kern/seek.h>
+#include <kern/stat.h>
 
 int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd)
 {
@@ -32,6 +34,7 @@ int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd)
         if (err) {
             return err;
         }
+        p->p_fdtable = table;
     } else {
         table = p->p_fdtable;
     }
@@ -113,10 +116,13 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
     struct fd_table *table;
     struct fobj     *file;
     int             err;
-    int            kbuf;
+    char *kbuf = (char*) kmalloc(buflen);
 
     //Ensures buf is safe and stores it into kbuf
-    copyin((const_userptr_t) buf, &kbuf, buflen);
+    err = copyin((const_userptr_t) buf, kbuf, buflen);
+    if (err) {
+        return err;
+    }
 
     p = curthread->t_proc;
 
@@ -128,6 +134,7 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
         if (err) {
             return err;
         }
+        p->p_fdtable = table;
     } else {
         table = p->p_fdtable;
     }
@@ -143,12 +150,13 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
     
     lock_acquire(file->fobj_lk);
 
-    //Wrong permissions
-    if (file->mode == O_WRONLY) {
-        lock_release(file->fobj_lk);
-        return EBADF;
-    }
-	uio_kinit(&f_iovec, &f_uio, &kbuf, buflen, (off_t) file->offset, UIO_READ);
+    //TODO: Figure this out!
+    // //Wrong permissions
+    // if (file->mode == O_WRONLY) {
+    //     lock_release(file->fobj_lk);
+    //     return EBADF;
+    // }
+	uio_kinit(&f_iovec, &f_uio, kbuf, buflen, (off_t) file->offset, UIO_READ);
 
     err = VOP_READ(file->vn, &f_uio);
     if (err) {
@@ -162,20 +170,27 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
 
     lock_release(file->fobj_lk);
 
-    copyout(&kbuf, buf, *count);
+    err = copyout(kbuf, buf, *count); 
+    kfree(kbuf);
+    if (err) {
+        return err;
+    }
 
     return 0;
 }
 
-int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count) {
+int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
     struct proc     *p;
     struct fd_table *table;
     struct fobj     *file;
     int             err;
-    int            kbuf;
+    char *kbuf = (char*) kmalloc(nbytes);
 
     //Ensures buf is safe and stores it into kbuf
-    copyin((const_userptr_t) buf, &kbuf, nbytes);
+    err = copyin((const_userptr_t) buf, kbuf, nbytes);
+    if (err) {
+        return err;
+    }
 
     p = curthread->t_proc;
 
@@ -203,11 +218,11 @@ int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count) {
     lock_acquire(file->fobj_lk);
 
     //Wrong permissions
-    if (file->mode == O_RDONLY) {
-        lock_release(file->fobj_lk);
-        return EBADF;
-    }
-	uio_kinit(&f_iovec, &f_uio, &kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
+    //if (file->mode == O_RDONLY) {
+    //    lock_release(file->fobj_lk);
+    //    return EBADF;
+    //}
+	uio_kinit(&f_iovec, &f_uio, kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
 
     err = VOP_WRITE(file->vn, &f_uio);
     if (err) {
@@ -223,3 +238,169 @@ int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count) {
 
     return 0;
 }
+
+
+int sys_lseek(int fd, off_t pos, int whence, int32_t *new_pos) {
+
+    struct proc *p;
+    struct fd_table *table;
+    struct fobj *file;
+    int err;
+
+    p = curthread->t_proc;
+
+    // if (fd > OPEN_MAX || fd < 0){
+    //     return EBADF;
+    // }
+
+    // if (p->p_fdtable->files[fd] == NULL){
+    //     return EBADF;
+    // }
+
+    spinlock_acquire(&p->p_lock);
+    table = p->p_fdtable;
+    err = fd_table_get(table, fd, &file);
+    if (err)
+    {
+        spinlock_release(&p->p_lock);
+        return err; //EBADF
+    }
+    spinlock_release(&p->p_lock);
+
+    struct stat statbuf;
+    lock_acquire(file->fobj_lk);
+    // err = VOP_ISSEEKABLE(file->vn)
+    // if (err) 
+    // {
+    //     lock_release(file->fobj_lk);
+    //     return ESPIPE;
+    // }
+
+    switch (whence)
+    {
+    case SEEK_SET:
+        *new_pos = pos;
+        file->offset = *new_pos;
+        lock_release(file->fobj_lk);
+        return 0;
+    case SEEK_CUR:
+        *new_pos = file->offset + pos;
+        file->offset = *new_pos;
+        lock_release(file->fobj_lk);
+        return 0;
+    case SEEK_END:
+        err = VOP_STAT(file->vn, &statbuf);
+        if(err)
+            return err;
+        *new_pos = statbuf.st_size + pos;
+        file->offset = *new_pos;
+        lock_release(file->fobj_lk);
+        return 0;
+    default :
+        lock_release(file->fobj_lk);
+        return EINVAL;
+    }
+}
+
+// int dup2(int oldfd, int newfd){
+//     struct proc *p;
+//     struct fd_table *table;
+//     struct fobj *file;
+//     int err;
+
+//     p = curthread->t_proc;
+
+    
+
+//     spinlock_acquire(&p->p_lock);
+//     table = p->p_fdtable;
+//     err = fd_table_get(table, oldfd, &file);
+//     if (err)
+//     {
+//         spinlock_release(&p->p_lock);
+//         return err; // EBADF
+//     }
+//     spinlock_release(&p->p_lock);
+
+//     if (newfd > OPEN_MAX || fd < 0){
+//          return EBADF;
+//      }
+
+//      if(oldfd == newfd)
+//         return 0;
+
+//      lock_acquire(table->fd_table_lk);
+
+//     if(!fd_table_get(table, oldfd, &file)){
+//        err = sys_close(oldfd);
+//        if(err){
+//            lock_release(table->fd_table_lk);
+//            return err;
+//        }
+//     }
+//      err = fd_table_add(table, file, newfd);
+//      if(err){
+//          lock_release(table->fd_table_lk);
+//          return err;
+//      }
+//      lock_release(table->fd_table_lk);
+//      return 0;
+// }
+
+// int chdir(const char *pathname){
+
+//     if (pathname == NULL)
+//     {
+//         return EFAULT;
+//     }
+
+//     char fobjname[MAX_FILE_NAME];
+//     int err;
+//     struct proc *p;
+//     p = curthread->t_proc;
+    
+
+//     err = copyinstr(&pathname, fobjname, sizeof(fobjname), NULL);
+
+//     if(err){
+//         return err;
+//     }
+
+//     spinlock_acquire(&p->p_lock);
+//     err = vfs_chdir(pathname);
+//     if(err){
+//         spinlock_release(&p->p_lock);
+//         return err;
+//     }
+//     spinlock_release(&p->p_lock);
+//     return 0;
+// }
+
+// int __getcwd(char *buf, size_t buflen){
+
+//     char fobjname[MAX_FILE_NAME];
+//     int err;
+//     struct proc *p;
+
+//     p = curthread->t_proc;
+
+//     struct uio f_uio;
+//     struct iovec f_iovec;
+//     err = uio_kinit(&f_iovec, &f_uio, buf, buflen, 0, UIO_READ);
+
+//     err = copyinstr(&buf, fobjname, sizeof(fobjname), NULL);
+//     if (err)
+//     {
+//         return err;
+//     }
+
+//     spinlock_acquire(&p->p_lock);
+//     err = vfs_getcwd(f_uio);
+//     if(err){
+//         spinlock_release(&p->p_lock);
+//         return err;
+//     }
+//     spinlock_release(&p->p_lock);
+//     return buflen;
+
+// }

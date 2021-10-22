@@ -66,7 +66,11 @@ simple_test()
 	readbuf[40] = 0;
 
 	if (strcmp(readbuf, writebuf)) {
-		errx(1, "Buffer data mismatch!");
+		printf(readbuf);
+		printf("\n");
+		printf(writebuf);
+		printf("\n");
+		errx(1, "Buffer data mismatch!!");
 	}
 }
 /*
@@ -261,13 +265,13 @@ simultaneous_write_test()
 	if (rv<0) {
 		err(1, "%s: write", file2);
 	}
-
+	printf("Hello !!!!@@#@#\n");
 	/* Rewind both files */
 	lseek_ret = lseek(fd1, -(40-seekpos), SEEK_CUR);
 	if (lseek_ret != seekpos) {
 		err(1, "%s: lseek", file1);
 	}
-
+	printf("Tomato\n");
 	lseek_ret = lseek(fd2, seekpos, SEEK_SET);
 	if (lseek_ret != seekpos) {
 		err(1, "%s: lseek", file2);

@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <limits.h>
 
 
 /*
@@ -98,6 +99,11 @@ syscall(struct trapframe *tf)
 	 */
 
 	retval = 0;
+	off_t arg2 = tf->tf_a2;
+	off_t arg3 = tf->tf_a3;
+	off_t pos = (arg2 << 32) |arg3;
+	int whence = *((int*) tf->tf_sp + 16);
+
 
 	switch (callno) {
 	    case SYS_reboot:
@@ -125,12 +131,17 @@ syscall(struct trapframe *tf)
 
 		case SYS_write:
 			err = sys_write(tf->tf_a0,
-					(const_userptr_t) tf->tf_a1,
+					(userptr_t) tf->tf_a1,
 					tf->tf_a2,
 					&retval);
 		break;
 
 		case SYS_lseek:
+		
+			err = sys_lseek(tf->tf_a0,
+					pos,
+					whence,
+					&retval);
 		break;
 
 		case SYS_close:

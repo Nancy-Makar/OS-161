@@ -61,6 +61,7 @@ int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd);
 int sys_close(int fd);
 int sys_read(int fd, void *buf, size_t buflen, int32_t *count);
-int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count);
+int sys_write(int fd, void *buf, size_t nbytes, int32_t *count);
+int sys_lseek(int fd, off_t pos, int whence, int32_t *new_pos);
 
 #endif /* _SYSCALL_H_ */

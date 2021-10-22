@@ -93,20 +93,14 @@ int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd) {
 
 
 int fd_table_remove(struct fd_table *fd_table, int fd) {
-   
-    KASSERT(fd_table != NULL);
-    KASSERT(fd >= 0);
-    KASSERT(fd < MAX_OPEN_FILES);
-    
+       
     lock_acquire(fd_table->fd_table_lk);
     if (fd_table->files[fd] == NULL) {
         lock_release(fd_table->fd_table_lk);
         return EBADF;
     }
-
-    
     fd_table->files[fd] = NULL;
-
+    lock_release(fd_table->fd_table_lk);
     return 0;
 }
 
