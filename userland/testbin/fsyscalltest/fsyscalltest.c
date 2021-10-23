@@ -351,6 +351,7 @@ dir_test()
 	_getcwd(buf, NAME_MAX);
 	printf("__getcwd returned: %s\n", buf);
 
+	printf("Here2\n");
 	ret = chdir(chdir_name);
 	if(ret)
 	{

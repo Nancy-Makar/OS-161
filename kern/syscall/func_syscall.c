@@ -240,7 +240,7 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
 }
 
 
-int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) {
+int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user pointer
 
     struct proc *p;
     struct fd_table *table;
@@ -350,34 +350,34 @@ int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
     return 0;
 }
 
-// int chdir(const char *pathname){
+int sys_chdir(const_userptr_t pathname)
+{
 
-//     if (pathname == NULL)
-//     {
-//         return EFAULT;
-//     }
+    if (pathname == NULL)
+    {
+        return EFAULT;
+    }
 
-//     char fobjname[MAX_FILE_NAME];
-//     int err;
-//     struct proc *p;
-//     p = curthread->t_proc;
-    
+    char fobjname[MAX_FILE_NAME];
+    int err;
+    // struct proc *p;
+    // p = curthread->t_proc;
 
-//     err = copyinstr(&pathname, fobjname, sizeof(fobjname), NULL);
+    err = copyinstr(pathname, fobjname, sizeof(fobjname), NULL);
 
-//     if(err){
-//         return err;
-//     }
+    if(err){
+        return err;
+    }
 
-//     spinlock_acquire(&p->p_lock);
-//     err = vfs_chdir(pathname);
-//     if(err){
-//         spinlock_release(&p->p_lock);
-//         return err;
-//     }
-//     spinlock_release(&p->p_lock);
-//     return 0;
-// }
+    //spinlock_acquire(&p->p_lock);
+    err = vfs_chdir((char*)pathname); //is atomic anyways
+    if(err){
+       // spinlock_release(&p->p_lock);
+        return err;
+    }
+    //spinlock_release(&p->p_lock);
+    return 0;
+}
 
 int sys_getcwd(userptr_t buf, size_t buflen, int *dataread){
 

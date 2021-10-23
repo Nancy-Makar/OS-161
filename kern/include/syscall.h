@@ -65,5 +65,6 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count);
 int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos);
 int sys_dup2(int oldf, int newfd, int *newfdreturn);
 int sys_getcwd(userptr_t buf, size_t buflen, int *dataread);
+int sys_chdir(const_userptr_t pathname);
 
 #endif /* _SYSCALL_H_ */
