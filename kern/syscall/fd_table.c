@@ -11,6 +11,7 @@
 #include <kern/fcntl.h>
 
 
+
 int fd_table_create(struct fd_table **fd_table) {
     int err;
 
@@ -107,6 +108,11 @@ int fd_table_remove(struct fd_table *fd_table, int fd) {
 int fd_table_get(struct fd_table *fd_table, int fd, struct fobj **fobj)
 {
     lock_acquire(fd_table->fd_table_lk);
+    if (fd >= MAX_OPEN_FILES || fd < 0)  //added by nancy
+    {
+        lock_release(fd_table->fd_table_lk);
+        return EBADF;
+    }
     if (fd_table->files[fd] == NULL) {
         lock_release(fd_table->fd_table_lk);
         return EBADF;

@@ -160,6 +160,9 @@ syscall(struct trapframe *tf)
 		err = sys_dup2(tf->tf_a0,
 						tf->tf_a1,
 						&retval);
+		if (err == (int)tf->tf_a0){
+			err = 0;
+		}
 		break;
 
 		case SYS_chdir:

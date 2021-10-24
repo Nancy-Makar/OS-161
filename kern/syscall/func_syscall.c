@@ -152,10 +152,11 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
 
     //TODO: Figure this out!
     // //Wrong permissions
-    // if (file->mode == O_WRONLY) {
+    // if (file->mode == O_WRONLY || file->mode > 2) { //Applicable only for the first 3 modes
     //     lock_release(file->fobj_lk);
     //     return EBADF;
     // }
+
 	uio_kinit(&f_iovec, &f_uio, kbuf, buflen, (off_t) file->offset, UIO_READ);
 
     err = VOP_READ(file->vn, &f_uio);
@@ -218,11 +219,12 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
     lock_acquire(file->fobj_lk);
 
     //Wrong permissions
-    //if (file->mode == O_RDONLY) {
-    //    lock_release(file->fobj_lk);
-    //    return EBADF;
-    //}
-	uio_kinit(&f_iovec, &f_uio, kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
+    // if (file->mode == O_RDONLY)
+    // {
+    //     lock_release(file->fobj_lk);
+    //     return EBADF;
+    // }
+    uio_kinit(&f_iovec, &f_uio, kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
 
     err = VOP_WRITE(file->vn, &f_uio);
     if (err) {
@@ -242,6 +244,8 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
 
 int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user pointer
 
+
+
     struct proc *p;
     struct fd_table *table;
     struct fobj *file;
@@ -249,7 +253,7 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
 
     p = curthread->t_proc;
 
-    // if (fd > OPEN_MAX || fd < 0){
+    // if (fd > MAX_OPEN_FILES || fd < 0){
     //     return EBADF;
     // }
 
@@ -269,37 +273,43 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
 
     struct stat statbuf;
     lock_acquire(file->fobj_lk);
-    // err = VOP_ISSEEKABLE(file->vn)
-    // if (err) 
-    // {
-    //     lock_release(file->fobj_lk);
-    //     return ESPIPE;
-    // }
+
 
     switch (whence)
     {
     case SEEK_SET:
         *new_pos = pos;
-        file->offset = *new_pos;
-        lock_release(file->fobj_lk);
-        return 0;
+        break;
     case SEEK_CUR:
         *new_pos = file->offset + pos;
-        file->offset = *new_pos;
-        lock_release(file->fobj_lk);
-        return 0;
+        break;
     case SEEK_END:
         err = VOP_STAT(file->vn, &statbuf);
-        if(err)
+        if(err){
+            lock_release(file->fobj_lk);
             return err;
+        }
         *new_pos = statbuf.st_size + pos;
-        file->offset = *new_pos;
-        lock_release(file->fobj_lk);
-        return 0;
+        break;
     default :
         lock_release(file->fobj_lk);
         return EINVAL;
     }
+
+    if (*new_pos < 0)
+    {
+        lock_release(file->fobj_lk);
+        return EINVAL;
+    }
+    file->offset = *new_pos;
+    // err = VOP_ISSEEKABLE(file->vn);
+    // if (err)
+    // {
+    //     lock_release(file->fobj_lk);
+    //     return ESPIPE;
+    // }
+    lock_release(file->fobj_lk);
+    return 0;
 }
 
 int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
@@ -309,15 +319,17 @@ int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
     struct fobj *file2;
     int err;
 
-    if (newfd > MAX_OPEN_FILES || newfd < 0){
+    if (newfd >= MAX_OPEN_FILES || newfd < 0){
          return EBADF;
     }
-    if (oldfd > MAX_OPEN_FILES || oldfd < 0){
+    if (oldfd >= MAX_OPEN_FILES || oldfd < 0){
         return EBADF;
     }
 
-    if(oldfd == newfd)
-        return 0;
+    if(oldfd == newfd){
+        *newfdreturn = oldfd;
+        return oldfd;
+    }
 
     p = curthread->t_proc;
 
