@@ -152,10 +152,35 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
 
     //TODO: Figure this out!
     // //Wrong permissions
-    // if (file->mode == O_WRONLY || file->mode > 2) { //Applicable only for the first 3 modes
+    // if (file->mode > 64 ||  ) { //Applicable only for the first 3 modes
     //     lock_release(file->fobj_lk);
     //     return EBADF;
     // }
+
+    // switch(file->mode){
+    //     case O_RDONLY:
+    //         break;
+    //     case O_WRONLY:
+    //         break;
+    //     case O_RDWR:
+    //         break;
+    //     case O_CREAT:
+    //         break;
+    //     case O_EXCL:
+    //         break;
+    //     case O_TRUNC:
+    //         break;
+    //     case O_APPEND:
+    //         break;
+    //     case O_NOCTTY:
+    //         break;
+    //     case O_ACCMODE:
+    //         break;
+    //     default:
+    //         lock_release(file->fobj_lk);
+    //         return EBADF;
+    // }
+
 
 	uio_kinit(&f_iovec, &f_uio, kbuf, buflen, (off_t) file->offset, UIO_READ);
 
@@ -253,13 +278,7 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
 
     p = curthread->t_proc;
 
-    // if (fd > MAX_OPEN_FILES || fd < 0){
-    //     return EBADF;
-    // }
 
-    // if (p->p_fdtable->files[fd] == NULL){
-    //     return EBADF;
-    // }
 
     spinlock_acquire(&p->p_lock);
     table = p->p_fdtable;
@@ -302,12 +321,11 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
         return EINVAL;
     }
     file->offset = *new_pos;
-    // err = VOP_ISSEEKABLE(file->vn);
-    // if (err)
-    // {
-    //     lock_release(file->fobj_lk);
-    //     return ESPIPE;
-    // }
+    if (!VOP_ISSEEKABLE(file->vn))
+    {
+        lock_release(file->fobj_lk);
+        return ESPIPE;
+    }
     lock_release(file->fobj_lk);
     return 0;
 }
@@ -372,8 +390,7 @@ int sys_chdir(const_userptr_t pathname)
 
     char fobjname[MAX_FILE_NAME];
     int err;
-    // struct proc *p;
-    // p = curthread->t_proc;
+
 
     err = copyinstr(pathname, fobjname, sizeof(fobjname), NULL);
 
@@ -381,13 +398,10 @@ int sys_chdir(const_userptr_t pathname)
         return err;
     }
 
-    //spinlock_acquire(&p->p_lock);
-    err = vfs_chdir((char*)pathname); //is atomic anyways
+    err = vfs_chdir((char*)pathname); 
     if(err){
-       // spinlock_release(&p->p_lock);
         return err;
     }
-    //spinlock_release(&p->p_lock);
     return 0;
 }
 
