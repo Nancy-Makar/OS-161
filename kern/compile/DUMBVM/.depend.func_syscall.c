@@ -11,4 +11,5 @@ func_syscall.o: ../../syscall/func_syscall.c ../../include/types.h \
  ../../include/syscall.h ../../include/fd_table.h ../../include/vfs.h \
  ../../include/vnode.h ../../include/proc.h ../../include/uio.h \
  ../../include/kern/iovec.h ../../include/kern/errno.h \
- ../../include/kern/fcntl.h
+ ../../include/kern/fcntl.h ../../include/kern/seek.h \
+ ../../include/kern/stat.h

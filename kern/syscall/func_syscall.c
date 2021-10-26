@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <kern/fcntl.h>
 #include <kern/seek.h>
+#include <kern/stat.h>
 
 int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd)
 {
@@ -33,6 +34,7 @@ int sys_open(const_userptr_t filename, int flags, mode_t mode, int32_t *fd)
         if (err) {
             return err;
         }
+        p->p_fdtable = table;
     } else {
         table = p->p_fdtable;
     }
@@ -114,10 +116,13 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
     struct fd_table *table;
     struct fobj     *file;
     int             err;
-    int            kbuf;
+    char *kbuf = (char*) kmalloc(buflen);
 
     //Ensures buf is safe and stores it into kbuf
-    copyin((const_userptr_t) buf, &kbuf, buflen);
+    err = copyin((const_userptr_t) buf, kbuf, buflen);
+    if (err) {
+        return err;
+    }
 
     p = curthread->t_proc;
 
@@ -129,6 +134,7 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
         if (err) {
             return err;
         }
+        p->p_fdtable = table;
     } else {
         table = p->p_fdtable;
     }
@@ -144,12 +150,39 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
     
     lock_acquire(file->fobj_lk);
 
-    //Wrong permissions
-    if (file->mode == O_WRONLY) {
-        lock_release(file->fobj_lk);
-        return EBADF;
-    }
-	uio_kinit(&f_iovec, &f_uio, &kbuf, buflen, (off_t) file->offset, UIO_READ);
+    //TODO: Figure this out!
+    // //Wrong permissions
+    // if (file->mode > 64 ||  ) { //Applicable only for the first 3 modes
+    //     lock_release(file->fobj_lk);
+    //     return EBADF;
+    // }
+
+    // switch(file->mode){
+    //     case O_RDONLY:
+    //         break;
+    //     case O_WRONLY:
+    //         break;
+    //     case O_RDWR:
+    //         break;
+    //     case O_CREAT:
+    //         break;
+    //     case O_EXCL:
+    //         break;
+    //     case O_TRUNC:
+    //         break;
+    //     case O_APPEND:
+    //         break;
+    //     case O_NOCTTY:
+    //         break;
+    //     case O_ACCMODE:
+    //         break;
+    //     default:
+    //         lock_release(file->fobj_lk);
+    //         return EBADF;
+    // }
+
+
+	uio_kinit(&f_iovec, &f_uio, kbuf, buflen, (off_t) file->offset, UIO_READ);
 
     err = VOP_READ(file->vn, &f_uio);
     if (err) {
@@ -163,20 +196,27 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
 
     lock_release(file->fobj_lk);
 
-    copyout(&kbuf, buf, *count);
+    err = copyout(kbuf, buf, *count); 
+    kfree(kbuf);
+    if (err) {
+        return err;
+    }
 
     return 0;
 }
 
-int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count) {
+int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
     struct proc     *p;
     struct fd_table *table;
     struct fobj     *file;
     int             err;
-    int            kbuf;
+    char *kbuf = (char*) kmalloc(nbytes);
 
     //Ensures buf is safe and stores it into kbuf
-    copyin((const_userptr_t) buf, &kbuf, nbytes);
+    err = copyin((const_userptr_t) buf, kbuf, nbytes);
+    if (err) {
+        return err;
+    }
 
     p = curthread->t_proc;
 
@@ -204,11 +244,12 @@ int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count) {
     lock_acquire(file->fobj_lk);
 
     //Wrong permissions
-    if (file->mode == O_RDONLY) {
-        lock_release(file->fobj_lk);
-        return EBADF;
-    }
-	uio_kinit(&f_iovec, &f_uio, &kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
+    // if (file->mode == O_RDONLY)
+    // {
+    //     lock_release(file->fobj_lk);
+    //     return EBADF;
+    // }
+    uio_kinit(&f_iovec, &f_uio, kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
 
     err = VOP_WRITE(file->vn, &f_uio);
     if (err) {
@@ -225,26 +266,19 @@ int sys_write(int fd, const void *buf, size_t nbytes, int32_t *count) {
     return 0;
 }
 
-off_t sys_lseek(int fd, off_t pos, int whence){
+
+int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user pointer
+
+
 
     struct proc *p;
     struct fd_table *table;
     struct fobj *file;
     int err;
 
-    off_t new_pos;
-
     p = curthread->t_proc;
 
-    // if (fd > OPEN_MAX || fd < 0){
-    //     return EBADF;
-    // }
 
-    // if (p->p_fdtable->files[fd] == NULL){
-    //     return EBADF;
-    // }
-
-    
 
     spinlock_acquire(&p->p_lock);
     table = p->p_fdtable;
@@ -256,93 +290,98 @@ off_t sys_lseek(int fd, off_t pos, int whence){
     }
     spinlock_release(&p->p_lock);
 
-
-
-    if (whence != SEEK_SET || whence != SEEK_CUR){
-        if(whence != SEEK_END){
-            return EINVAL;
-        }
-    }
-    struct stat *statbuf;
+    struct stat statbuf;
     lock_acquire(file->fobj_lk);
-    if (VOP_ISSEEKABLE(file->vn) != 0)
-    {
-        lock_release(file->fobj_lk);
-        return ESPIPE;
-    }
+
 
     switch (whence)
     {
     case SEEK_SET:
-        new_pos = pos;
-        p->p_fdtable->files[fd]->offset = new_pos;
-        lock_release(file->fobj_lk);
-        return new_pos;
+        *new_pos = pos;
+        break;
     case SEEK_CUR:
-        new_pos = p->p_fdtable->files[fd]->offset + pos;
-        p->p_fdtable->files[fd]->offset = new_pos;
-        lock_release(file->fobj_lk);
-        return new_pos;
+        *new_pos = file->offset + pos;
+        break;
     case SEEK_END:
-        err = VOP_STAT(file->vn, statbuf);
-        if(err)
-            return err;
-        new_pos = statbuf->st_size + pos;
-        p->p_fdtable->files[fd]->offset = new_pos;
-        lock_release(file->fobj_lk);
-        return new_pos;
-        default :
+        err = VOP_STAT(file->vn, &statbuf);
+        if(err){
             lock_release(file->fobj_lk);
-            return EINVAL;
+            return err;
+        }
+        *new_pos = statbuf.st_size + pos;
+        break;
+    default :
+        lock_release(file->fobj_lk);
+        return EINVAL;
     }
+
+    if (*new_pos < 0)
+    {
+        lock_release(file->fobj_lk);
+        return EINVAL;
+    }
+    file->offset = *new_pos;
+    if (!VOP_ISSEEKABLE(file->vn))
+    {
+        lock_release(file->fobj_lk);
+        return ESPIPE;
+    }
+    lock_release(file->fobj_lk);
+    return 0;
 }
 
-int dup2(int oldfd, int newfd){
+int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
     struct proc *p;
     struct fd_table *table;
     struct fobj *file;
+    struct fobj *file2;
     int err;
+
+    if (newfd >= MAX_OPEN_FILES || newfd < 0){
+         return EBADF;
+    }
+    if (oldfd >= MAX_OPEN_FILES || oldfd < 0){
+        return EBADF;
+    }
+
+    if(oldfd == newfd){
+        *newfdreturn = oldfd;
+        return oldfd;
+    }
 
     p = curthread->t_proc;
 
-    
-
     spinlock_acquire(&p->p_lock);
     table = p->p_fdtable;
-    err = fd_table_get(table, oldfd, &file);
-    if (err)
-    {
-        spinlock_release(&p->p_lock);
-        return err; // EBADF
-    }
     spinlock_release(&p->p_lock);
-
-    if (newfd > OPEN_MAX || fd < 0){
-         return EBADF;
-     }
-
-     if(oldfd == newfd)
-        return 0;
-
-     lock_acquire(table->fd_table_lk);
-
-    if(!fd_table_get(table, oldfd, &file)){
-       err = sys_close(oldfd);
-       if(err){
-           lock_release(table->fd_table_lk);
+    err = fd_table_get(table, oldfd, &file);
+    if (err) {
+        return err;
+    }
+    //Check if newfd points to an open file 
+    if(!fd_table_get(table, newfd, &file2)){
+        //If it does point to an open file, lets close that file
+        err = sys_close(newfd);
+        if(err){
            return err;
        }
     }
-     err = fd_table_add(table, file, newfd);
-     if(err){
-         lock_release(table->fd_table_lk);
-         return err;
-     }
-     lock_release(table->fd_table_lk);
-     return 0;
+    //Increase the reference count
+    lock_acquire(file->fobj_lk);
+    file->refcount++;
+    VOP_INCREF(file->vn);
+    lock_release(file->fobj_lk);
+
+    err = fd_table_add(table, file, &newfd);
+    if(err){
+        return err;
+    }
+    *newfdreturn = newfd;
+    return 0;
 }
 
-int chdir(const char *pathname){
+int sys_chdir(const_userptr_t pathname)
+{
 
     if (pathname == NULL)
     {
@@ -351,51 +390,50 @@ int chdir(const char *pathname){
 
     char fobjname[MAX_FILE_NAME];
     int err;
-    struct proc *p;
-    p = curthread->t_proc;
-    
 
-    err = copyinstr(&pathname, fobjname, sizeof(fobjname), NULL);
+
+    err = copyinstr(pathname, fobjname, sizeof(fobjname), NULL);
 
     if(err){
         return err;
     }
 
-    spinlock_acquire(&p->p_lock);
-    err = vfs_chdir(pathname);
+    err = vfs_chdir((char*)pathname); 
     if(err){
-        spinlock_release(&p->p_lock);
         return err;
     }
-    spinlock_release(&p->p_lock);
     return 0;
 }
 
-int __getcwd(char *buf, size_t buflen){
+int sys_getcwd(userptr_t buf, size_t buflen, int *dataread){
 
-    char fobjname[MAX_FILE_NAME];
     int err;
-    struct proc *p;
+    char *kbuf = (char*) kmalloc(buflen);
 
-    p = curthread->t_proc;
+    //Ensures buf is safe and stores it into kbuf
+    err = copyin((const_userptr_t) buf, kbuf, buflen);
+    if (err) {
+        return err;
+    }
+
 
     struct uio f_uio;
     struct iovec f_iovec;
-    err = uio_kinit(&f_iovec, &f_uio, buf, buflen, 0, UIO_READ);
 
-    err = copyinstr(&buf, fobjname, sizeof(fobjname), NULL);
-    if (err)
-    {
-        return err;
-    }
+    uio_kinit(&f_iovec, &f_uio, kbuf, buflen, 0, UIO_READ);
 
-    spinlock_acquire(&p->p_lock);
-    err = vfs_getcwd(f_uio);
+    err = vfs_getcwd(&f_uio);
     if(err){
-        spinlock_release(&p->p_lock);
         return err;
     }
-    spinlock_release(&p->p_lock);
-    return buflen;
 
+   //Amount read = buflen - amount of data remaining in uio
+    *dataread = buflen - f_uio.uio_resid;
+
+    err = copyout(kbuf, (userptr_t) buf, *dataread); 
+    kfree(kbuf);
+    if (err) {
+        return err;
+    }
+    return 0;
 }

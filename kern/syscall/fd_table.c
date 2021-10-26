@@ -11,6 +11,7 @@
 #include <kern/fcntl.h>
 
 
+
 int fd_table_create(struct fd_table **fd_table) {
     int err;
 
@@ -78,6 +79,11 @@ the 0 if the insertion was successful, and returns -1 error if the file table is
 int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd) {
 
     lock_acquire(table->fd_table_lk);
+    if (*fd >= MAX_OPEN_FILES || *fd < 0) 
+    {
+        lock_release(table->fd_table_lk);
+        return EBADF;
+    }
     for (int i = 0; i < 32; i++){
         if(table->files[i] == NULL){
             table->files[i] = newfile;
@@ -93,26 +99,30 @@ int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd) {
 
 
 int fd_table_remove(struct fd_table *fd_table, int fd) {
-   
-    KASSERT(fd_table != NULL);
-    KASSERT(fd >= 0);
-    KASSERT(fd < MAX_OPEN_FILES);
-    
+       
     lock_acquire(fd_table->fd_table_lk);
+    if (fd >= MAX_OPEN_FILES || fd < 0) 
+    {
+        lock_release(fd_table->fd_table_lk);
+        return EBADF;
+    }
     if (fd_table->files[fd] == NULL) {
         lock_release(fd_table->fd_table_lk);
         return EBADF;
     }
-
-    
     fd_table->files[fd] = NULL;
-
+    lock_release(fd_table->fd_table_lk);
     return 0;
 }
 
 int fd_table_get(struct fd_table *fd_table, int fd, struct fobj **fobj)
 {
     lock_acquire(fd_table->fd_table_lk);
+    if (fd >= MAX_OPEN_FILES || fd < 0) 
+    {
+        lock_release(fd_table->fd_table_lk);
+        return EBADF;
+    }
     if (fd_table->files[fd] == NULL) {
         lock_release(fd_table->fd_table_lk);
         return EBADF;

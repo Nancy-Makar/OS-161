@@ -66,7 +66,11 @@ simple_test()
 	readbuf[40] = 0;
 
 	if (strcmp(readbuf, writebuf)) {
-		errx(1, "Buffer data mismatch!");
+		printf(readbuf);
+		printf("\n");
+		printf(writebuf);
+		printf("\n");
+		errx(1, "Buffer data mismatch!!");
 	}
 }
 /*
@@ -87,16 +91,17 @@ test_dup2()
 
 	file = "testfile";
 
+	printf("Before the open\n");
 	fd = open(file, O_WRONLY|O_CREAT|O_TRUNC, 0664);
 	if (fd<0) {
 		err(1, "%s: open for write", file);
 	}
-
+	printf("Before the write\n");
 	rv = write(fd, writebuf, 40);
 	if (rv<0) {
 		err(1, "%s: write", file);
 	}
-	
+	printf("Before the dup\n");
 	dupfd = fd + 1;
 	rv = dup2(fd, dupfd);
 	if (rv<0) {
@@ -106,32 +111,33 @@ test_dup2()
 	{
 		err(1, "dup2() returned %d, expected %d\n", rv, dupfd);
 	}
-
+	printf("Before the 2nd write \n");
 	rv = write(dupfd, writebuf, 40);
 	if (rv<0) {
 		err(1, "%s: write via duplicated fd", file);
 	}
-
+	printf("Before the close \n");
 	rv = close(fd);
 	if (rv<0) {
 		err(1, "%s: close (original fd)", file);
 	}
-
+	printf("Before the 2nd close \n");
 	rv = close(dupfd);
 	if (rv<0) {
 		err(1, "%s: close (duplicate)", file);
 	}
 
+	printf("Before the 2nd open \n");
 	fd = open(file, O_RDONLY);
 	if (fd<0) {
 		err(1, "%s: open for read", file);
 	}
-
+	printf("Before the read  \n");
 	rv = read(fd, readbuf, 80);
 	if (rv<0) {
 		err(1, "%s: read", file);
 	}
-
+	printf("Before the 3rd close \n");
 	rv = close(fd);
 	if (rv<0) {
 		err(1, "%s: close (3d time)", file);
@@ -261,13 +267,12 @@ simultaneous_write_test()
 	if (rv<0) {
 		err(1, "%s: write", file2);
 	}
-
-	/* Rewind both files */
+	int fad = SEEK_CUR;
+	printf("%d",fad);
 	lseek_ret = lseek(fd1, -(40-seekpos), SEEK_CUR);
 	if (lseek_ret != seekpos) {
 		err(1, "%s: lseek", file1);
 	}
-
 	lseek_ret = lseek(fd2, seekpos, SEEK_SET);
 	if (lseek_ret != seekpos) {
 		err(1, "%s: lseek", file2);
@@ -342,9 +347,11 @@ dir_test()
 	char buf[NAME_MAX+1];
 	int ret;
 
+	printf("Here\n");
 	_getcwd(buf, NAME_MAX);
 	printf("__getcwd returned: %s\n", buf);
 
+	printf("Here2\n");
 	ret = chdir(chdir_name);
 	if(ret)
 	{
