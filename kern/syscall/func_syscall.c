@@ -150,37 +150,6 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
     
     lock_acquire(file->fobj_lk);
 
-    //TODO: Figure this out!
-    // //Wrong permissions
-    // if (file->mode > 64 ||  ) { //Applicable only for the first 3 modes
-    //     lock_release(file->fobj_lk);
-    //     return EBADF;
-    // }
-
-    // switch(file->mode){
-    //     case O_RDONLY:
-    //         break;
-    //     case O_WRONLY:
-    //         break;
-    //     case O_RDWR:
-    //         break;
-    //     case O_CREAT:
-    //         break;
-    //     case O_EXCL:
-    //         break;
-    //     case O_TRUNC:
-    //         break;
-    //     case O_APPEND:
-    //         break;
-    //     case O_NOCTTY:
-    //         break;
-    //     case O_ACCMODE:
-    //         break;
-    //     default:
-    //         lock_release(file->fobj_lk);
-    //         return EBADF;
-    // }
-
 
 	uio_kinit(&f_iovec, &f_uio, kbuf, buflen, (off_t) file->offset, UIO_READ);
 
@@ -246,12 +215,6 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
     
     lock_acquire(file->fobj_lk);
 
-    //Wrong permissions
-    // if (file->mode == O_RDONLY)
-    // {
-    //     lock_release(file->fobj_lk);
-    //     return EBADF;
-    // }
     uio_kinit(&f_iovec, &f_uio, kbuf, nbytes, (off_t) file->offset, UIO_WRITE);
 
     err = VOP_WRITE(file->vn, &f_uio);
@@ -289,7 +252,7 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
     if (err)
     {
         spinlock_release(&p->p_lock);
-        return err; //EBADF
+        return err; //returns EBADF if the file is not oepend or fd is invalid
     }
     spinlock_release(&p->p_lock);
 
@@ -306,11 +269,13 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
         *new_pos = file->offset + pos;
         break;
     case SEEK_END:
+        //Gets information about the file nad stores them in statbuf
         err = VOP_STAT(file->vn, &statbuf);
         if(err){
             lock_release(file->fobj_lk);
             return err;
         }
+        //st_size is the size of the file
         *new_pos = statbuf.st_size + pos;
         break;
     default :
@@ -324,6 +289,7 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *new_pos) { //whence user poi
         return EINVAL;
     }
     file->offset = *new_pos;
+    //checks if the file is seekeable
     if (!VOP_ISSEEKABLE(file->vn))
     {
         lock_release(file->fobj_lk);
@@ -340,6 +306,7 @@ int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
     struct fobj *file2;
     int err;
 
+    //checks if both oldfd and newfd are valid
     if (newfd >= MAX_OPEN_FILES || newfd < 0){
          return EBADF;
     }
@@ -347,6 +314,7 @@ int sys_dup2(int oldfd, int newfd, int *newfdreturn) {
         return EBADF;
     }
 
+    //If dup2 is called to duplicate a file into intself, we do nothing and return the file descriptor value
     if(oldfd == newfd){
         *newfdreturn = oldfd;
         return oldfd;
@@ -394,13 +362,14 @@ int sys_chdir(const_userptr_t pathname)
     char fobjname[MAX_FILE_NAME];
     int err;
 
-
+    //Ensures the string pathname is copied safely form user address space to the kernel address space
     err = copyinstr(pathname, fobjname, sizeof(fobjname), NULL);
 
     if(err){
         return err;
     }
 
+    //Makes sure the directory of the process is changed safely and send a suitable error
     err = vfs_chdir((char*)pathname); 
     if(err){
         return err;
@@ -433,6 +402,7 @@ int sys_getcwd(userptr_t buf, size_t buflen, int *dataread){
    //Amount read = buflen - amount of data remaining in uio
     *dataread = buflen - f_uio.uio_resid;
 
+    //Copies buf to user address space
     err = copyout(kbuf, (userptr_t) buf, *dataread); 
     kfree(kbuf);
     if (err) {

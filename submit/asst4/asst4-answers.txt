@@ -1,0 +1,88 @@
+1.) What are the ELF magic numbers?
+-You can find the ELF magic numbers in the file: src/kern/include/elf.h on line 69-72. They are
+found in the e_indent array and are the first 3 bytes. ELF_MAG0 is equal to 0x7f, ELF_MAG1 is 
+equal to "E", ELF_MAG2 is equal to "L" and ELF_MAG3 is equal to "F". These numbers are used to identify
+Executable and Linking Format (ELF) files. These information include how to load the executable into memory properly, how to resolve
+the library dependecies and where are the first instructions in the executable file to be executed.
+
+2.) What is the difference between UIO_USERISPACE and UIO_USERSPACE? When should one use UIO_SYSSPACE instead?
+-When data is being copied from a kernel buffer to another data region, the destination of the moving data needs to be specified and this is what segment flags do.
+If code segment is being transferred from the kernel buffer to a virtual address VADDR in the userspace, the function load_segment in kern/syscall/loadelf.c checks if the code 
+segment is executbale. If the code segment is executable load_segment sets the segment flag, uio_segflag, to UIO_USERISPACE, if not it sets it to UIO_USERSPACE. And since we transfer data
+from kernel space to user space, meaning domain crossing, we use copyin and copyout instructions to transfer data. Meanwhile if the seg_flag is SYSSPACE, this means that the data is being
+tranfered from a kernel buffer to kernel space which means no domain cross and thus simple memory instructions (memmove) are used to transfer data.
+
+-One would use UIO_SYSPACE when accessing data from the kernel.
+
+3.) Why can the struct uio that is used to read in a segment be allocated on the stack in load_segment() (ie. where does
+the memory read actually go)?
+-The struct uio has information about the segment to be loaded to memory such as address space for the user pointer and wheather the operation to be performed 
+is READ  or WRITE. However the struct uio gets some of this information from the load_segment() function argument, struct vnode *v, where a vnode is an abstract representation of a file.
+The uio gets the remaining inforamtion from the function load_segment itself for, example since we are loading a segment the u.uio_rw (defines the operation) will be always READ.
+So the struct uio can be on the stack because all of its are stored somehwere else or can be determined by the function. The memory is read into a virtual address.
+
+4.) In runprogram(), why is it important to call vfs_close() before going to usermode?
+-After we have loaded and accessed the executable we do not need to keep the executable file open. Our initial call to
+vfs_open() opens the file and increases the refrence count. vfs_close() allows us to close the file after it is done
+being used, by decrementing the references. If we forgot to call this, the reference count will never be correct
+and the executable will not be closed. When a file is open, some data structures such as, flgs and offset from which a process can read or write, are loaded into memory. Keeping the file open concumes resources. 
+When the file is closed, this data structure is removed from memory. If we do not close the file before switching to usermode, we will never close it na dthere will be a memory leak.
+
+5.) What function forces the processor to switch into usermode? Is this function machine dependent?
+The function mips_usermode() in the file src/kern/arch/mips/locore/trap.c is the function used to
+switch into usermode. This function is not machine dependent, but the function it calls asm_usermode() is machine dependent
+as it deals directly with MIPS registers.
+
+6.)In what file are copyin and copyout defined? memmove? Why can't copyin and copyout be implemented as simply as memmove?
+The functions copyin and copyout are defined in the file src/kern/vm/copyinout.c and the function memmove is defined
+in the file src/common/libc/string/memmove.c. copyin and copyout are used when copying blocks of memory from user-level address to a kernel address and vice versa respectively, 
+while memmove is used when moving a block of memory. However, while
+it is acceptable for memmove to fail, if we run into a fatal memory fault while copying data in the kernel, we need to be able
+to recover from it. So copyin and copyout need to call the function copycheck() which checks that the block of user memory provided (an address and a length) falls within the
+proper userspace region which is something memmove does not do. The functions copyin and copyout allow us to recover from these faults while memmove does not,
+and that is why we use copyin and copyout instead of memmove.
+
+7.) What (briefly) is the purpose of userptr_t?
+userptr_t is defined in the file src/kern/include/types.h. It is a pointer to a one-byte struct, so it does not mix with other
+pointers. This protects userptr_t from pointing to something it is not. This is to 
+achieve maximum type safety when in the kernel to avoid unintended uses of wrapped data.
+
+8.) What is the numerical value of the exception code for a MIPS system call?
+In line 91 of the file src/kern/arch/mips/include/trapframe.h we see that the numerical value of the exception code 
+is defined as:  EX_SYS	8.
+
+9.) How many bytes is in an instruction in MIPS? (Answer this by reading syscall() carefully, not by looking somewhere else).
+Looking at line 141 in the file src/kern/arch/mips/syscall/syscall.c we see that the program counter is advancing by 4
+for each instruction. Therefore the MIPS instructions are 4 bytes in size.
+
+10.) Why do you "probably want to change" the implementation of kill_curthread()?
+We see the function kill_curthread() is found in the file src/kern/arch/mips/locore/trap.c
+Currently, when the user faults the OS has no way of dealing with it. It just panics and prints off relevant information.
+We will want to be able to manage and handle different user level faults in our code differently, especially if some clean
+up is required.
+
+11.) What would be required to implement a system call that took more than 4 arguments?
+Because MIPS can only store up to 4 arguments in the registers $a0-$a3, any additional arguments in the system call will be
+passed in and accessed via the user-level stack, starting at sp+16.
+
+12.) What is the purpose of the SYSCALL macro?
+It loads the syscall number into v0, the register the kernel expects to find it in, and jump to the shared syscall code.
+
+13.) What is the MIPS instruction that actually triggers a system call? (Answer this by reading the source in this directory, not looking somewhere else.)
+syscall which is in line 83 in userland/lib/libc/arch/mips/syscalls-mips.S
+
+14.) After reading syscalls-mips.S and syscall.c, you should be prepared to answer the following question: OS/161 supports 64-bit values; lseek() takes and returns a 64-bit offset value. Thus, lseek() takes a 32-bit file handle (arg0), a 64-bit offset (arg1), a 32-bit whence (arg2), and needs to return a 64-bit offset value. In void syscall(struct trapframe *tf) where will you find each of the three arguments (in which registers) and how will you return the 64-bit offset? 
+-arg0 in a0
+-arg1 in a2 and a3
+-agr2 is fetched from the user-level stack at sp+16
+-the return value in v0 and v1
+
+15.) As you were reading the code in runprogram.c and loadelf.c, you probably noticed how the kernel manipulates the files. Which kernel function is called to open a file? Which macro is called to read the file? What about to write a file? Which data structure is used in the kernel to represent an open file? 
+-The kernel uses vfs_open to open files,  VOP_READ to read files and VOP_WRITE to write to files.
+-The struct vnode is used to represent the files.
+
+16.)  What is the purpose of VOP_INCREF and VOP_DECREF?
+-These functions are defined in the file src/kern/include/vnode.h
+-VOP_INCREF is used to increment the reference counter for a file (called whenever a file is opened), and VOP_DECREF is used
+to decrement the reference counter for a file (called whenever a file is closed). They are to keep track of how many file descriptors
+have opened a given file.
