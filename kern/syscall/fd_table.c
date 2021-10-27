@@ -115,7 +115,7 @@ int fd_table_remove(struct fd_table *fd_table, int fd) {
     return 0;
 }
 
-/*Given teh file descriptor fd as an argument gets the file that fd is pointing to which is also indexed by fd*/
+/*Given the file descriptor fd as an argument gets the file that fd is pointing to which is also indexed by fd*/
 int fd_table_get(struct fd_table *fd_table, int fd, struct fobj **fobj)
 {
     lock_acquire(fd_table->fd_table_lk);
