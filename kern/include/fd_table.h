@@ -16,7 +16,7 @@ struct fd_table
 struct fobj {
      struct vnode *vn;
      mode_t mode;
-     int offset;
+     off_t offset;
      int refcount;
      struct lock *fobj_lk;
 };

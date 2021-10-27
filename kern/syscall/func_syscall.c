@@ -10,7 +10,7 @@
 #include <vnode.h>
 #include <proc.h>
 #include <uio.h>
-#include <errno.h>
+#include <kern/errno.h>
 #include <kern/fcntl.h>
 #include <kern/seek.h>
 #include <kern/stat.h>
@@ -196,11 +196,14 @@ int sys_read(int fd, void *buf, size_t buflen, int32_t *count) {
 
     lock_release(file->fobj_lk);
 
-    err = copyout(kbuf, buf, *count); 
-    kfree(kbuf);
-    if (err) {
-        return err;
+    //*count == 0 means we reached EOF
+    if (*count != 0) {
+        err = copyout(kbuf, buf, *count); 
+        if (err) {
+            return err;
+        }
     }
+    kfree(kbuf);
 
     return 0;
 }
