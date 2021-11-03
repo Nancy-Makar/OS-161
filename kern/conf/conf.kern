@@ -450,3 +450,4 @@ optfile net	test/nettest.c
 
 file        syscall/func_syscall.c 
 file        syscall/fd_table.c
+file        syscall/proc_syscall.c

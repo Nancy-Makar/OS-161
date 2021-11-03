@@ -35,4 +35,6 @@ int fd_table_get(struct fd_table *table, int fd, struct fobj **file);
 /*Creates a new file descriptors table*/
 int fd_table_create(struct fd_table **table);
 
+void fd_table_copy(struct fd_table *fd_tabel, struct fd_table **new_fd_table);
+
 #endif

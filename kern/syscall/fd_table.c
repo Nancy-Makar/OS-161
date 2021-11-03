@@ -133,3 +133,18 @@ int fd_table_get(struct fd_table *fd_table, int fd, struct fobj **fobj)
     *fobj = file;
     return 0;
 }
+
+void fd_table_copy(struct fd_table *fd_table, struct fd_table **new_fd_table){
+    struct fd_table *table = kmalloc(sizeof(struct fd_table));
+    KASSERT(table != NULL);
+    table->fd_table_lk = lock_create("fd_table");
+    lock_acquire(table->fd_table_lk);
+    for (int i = 0; i < MAX_OPEN_FILES; i++){
+        table->files[i] = fd_table->files[i];
+        table->files[i]->refcount++;
+        vnode_incref(table->files[i]->vn);
+    }
+    lock_release(table->fd_table_lk);
+
+    *new_fd_table = table;
+}
