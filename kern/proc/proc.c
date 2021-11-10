@@ -48,6 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <fd_table.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -217,6 +218,47 @@ proc_create_runprogram(const char *name)
 	if (curproc->p_cwd != NULL) {
 		VOP_INCREF(curproc->p_cwd);
 		newproc->p_cwd = curproc->p_cwd;
+	}
+	spinlock_release(&curproc->p_lock);
+
+	return newproc;
+}
+
+/*
+ * Create a fresh proc for use by runprogram.
+ *
+ * It will have no address space and will inherit the current
+ * process's (that is, the kernel menu's) current directory.
+ */
+struct proc *
+proc_fork(const char *name)
+{
+	struct proc *newproc;
+    struct fd_table *new_fd_table;
+
+	newproc = proc_create(name);
+	if (newproc == NULL) {
+		return NULL;
+	}
+
+	/* VM fields */
+
+	newproc->p_addrspace = NULL;
+
+	/* VFS fields */
+
+	/*
+	 * Lock the current process to copy its current directory.
+	 * (We don't need to lock the new process, though, as we have
+	 * the only reference to it.)
+	 */
+	spinlock_acquire(&curproc->p_lock);
+	if (curproc->p_cwd != NULL) {
+		VOP_INCREF(curproc->p_cwd);
+		newproc->p_cwd = curproc->p_cwd;
+		struct fd_table *table = curproc->p_fdtable;
+		fd_table_copy(table, &new_fd_table);
+		newproc->p_fdtable = new_fd_table;
 	}
 	spinlock_release(&curproc->p_lock);
 

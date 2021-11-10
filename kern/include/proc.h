@@ -58,7 +58,16 @@ struct proc {
 
 	struct fd_table *p_fdtable;	
 
+	pid_t pid;
+
 	/* add more material here as needed */
+};
+
+struct pid_table 
+{
+    struct lock *pid_lock;
+    pid_t next_pid;
+    int num_proc;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -69,6 +78,9 @@ void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
+
+/**/
+struct proc *proc_fork(const char *name);
 
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);
@@ -84,6 +96,10 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
+
+int pid_create(void);
+pid_t get_next_pid(void);
+void remove_pid(void);
 
 
 #endif /* _PROC_H_ */

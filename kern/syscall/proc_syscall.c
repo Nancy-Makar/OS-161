@@ -18,38 +18,39 @@
 #include <uio.h>
 #include <kern/errno.h>
 #include <kern/fcntl.h>
-#include <proc_syscall.h>
 #include <vm.h>
 #include <addrspace.h>
 #include<mips/trapframe.h>
 #include <copyinout.h>
 #include <lib.h>
 
-int sys_fork(struct trapframe *tf,  pid_t *pid){
+int sys_fork(struct trapframe *tf,  pid_t *pid) {
+    (void)pid;
     struct proc *p;
     struct addrspace *as;
-    struct fd_table *table;
-    struct fd_table *new_fd_table;
     p = curthread->t_proc;
     as = p->p_addrspace;
-    table = p->p_fdtable;
+
     struct addrspace *newas;
     as_copy(as, &newas);
-    proc_setas(as);
-    as_activate();
 
     struct trapframe *newtf = kmalloc(sizeof(struct trapframe));
-    (void)pid;
-    // (void)tf;
-    // (void)newtf;
     memcpy(newtf, tf, sizeof(struct trapframe));
-    newtf->tf_v0 = 0;
 
-    
-    fd_table_copy(table, &new_fd_table);
+    struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
+    new_proc_arg->as = newas;
+    new_proc_arg->tf = newtf;
 
+    struct proc *child_proc = proc_fork("child process");
+    child_proc->pid = get_next_pid();
+    *pid = child_proc->pid;
 
-    //thread_fork()
+    thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
 
     return 0;
 }
+
+
+// pid_t get_pid() {
+//     return curporc->pid;
+// }

@@ -37,6 +37,8 @@
 #include <syscall.h>
 #include <limits.h>
 #include <copyinout.h>
+#include <addrspace.h>
+#include <proc.h>
 
 
 /*
@@ -175,6 +177,10 @@ syscall(struct trapframe *tf)
 									&retval);
 		break;
 
+		case SYS_fork:
+		err = sys_fork(tf, &retval);
+		break;
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
@@ -225,7 +231,16 @@ syscall(struct trapframe *tf)
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(struct trapframe *tf)
+enter_forked_process(void *proc_args, unsigned long taylor)
 {
-	(void)tf;
+	(void) taylor;
+
+	struct proc_arg *new_proc_arg = proc_args; //Will this work?
+
+	struct addrspace *as = new_proc_arg->as;
+	struct trapframe *tf = new_proc_arg->tf;
+
+	proc_setas(as);
+    as_activate();
+	mips_usermode(tf);
 }
