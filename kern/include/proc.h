@@ -67,13 +67,9 @@ struct proc {
 struct pid_table 
 {
     struct lock *pid_lock;
-    struct proc_pid *pids[PID_MAX + 1];
+    struct proc *procs[PID_MAX + 1];
 };
 
-struct proc_pid
-{
-	struct proc *process;
-};
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;

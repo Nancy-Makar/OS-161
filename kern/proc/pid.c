@@ -17,8 +17,7 @@ int pid_create(void) {
     table = kmalloc(sizeof(struct pid_table));
     KASSERT(table != NULL);
     for(int i = PID_MIN; i <= PID_MAX; i++){
-        table->pids[i] = kmalloc(sizeof(struct proc_pid));
-        table->pids[i]->process = NULL; //Set all process to NULL
+        table->procs[i] = NULL;
     }
     table->pid_lock = lock_create("pid_table");
     return 0;
@@ -35,7 +34,7 @@ pid_t get_next_pid(void) {
     lock_acquire(table->pid_lock);
     for (int i = PID_MIN; i <= PID_MAX; i++)
     {
-        if(table->pids[i]->process == NULL){ //check for the first bid that has a NULL process
+        if(table->procs[i] == NULL){ //check for the first bid that has a NULL process
             lock_release(table->pid_lock);
             return (pid_t)i;
         }
@@ -46,15 +45,15 @@ pid_t get_next_pid(void) {
 
 void remove_pid(pid_t pid) {
     lock_acquire(table->pid_lock);
-    table->pids[pid]->process = NULL; //set the process coressponding to the pid to NULL
+    table->procs[pid] = NULL; //set the process coressponding to the pid to NULL
     lock_release(table->pid_lock);
 }
 
 void add_proc(pid_t pid, struct proc *process){
-    table->pids[pid]->process = process;
+    table->procs[pid] = process;
 }
 
 struct proc *get_proc(pid_t pid){
-    return table->pids[pid]->process;
+    return table->procs[pid];
 }
 
