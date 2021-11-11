@@ -59,10 +59,10 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     return 0;
 }
 
-
-// pid_t get_pid() {
-//     return curporc->pid;
-// }
+void sys_getpid(pid_t *pid)
+{
+    *pid = curthread->t_proc->pid;
+}
 
 pid_t sys_waitpid(pid_t pid, int *status, int options){
     (void) status;
