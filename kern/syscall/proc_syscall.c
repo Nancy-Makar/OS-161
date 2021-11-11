@@ -32,10 +32,18 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     as = p->p_addrspace;
 
     struct addrspace *newas;
-    as_copy(as, &newas);
+    
 
     struct trapframe *newtf = kmalloc(sizeof(struct trapframe));
-    memcpy(newtf, tf, sizeof(struct trapframe));
+    //memcpy(newtf, tf, sizeof(struct trapframe));
+
+    *newtf = *tf;
+    newtf->tf_v0 = 0;
+    newtf->tf_epc += 4;
+
+
+
+    as_copy(as, &newas);
 
     struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
     new_proc_arg->as = newas;

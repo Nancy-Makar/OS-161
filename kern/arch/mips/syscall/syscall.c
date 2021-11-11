@@ -237,12 +237,16 @@ enter_forked_process(void *proc_args, unsigned long taylor)
 
 	struct proc_arg *new_proc_arg = (struct proc_arg*) proc_args; //Will this work?
 
+
+
 	struct addrspace *as = new_proc_arg->as;
 	struct trapframe *tf = new_proc_arg->tf;
-	tf->tf_v0 = 0;
-    tf->tf_epc += 4; //not sure 
 
 	proc_setas(as);
-    as_activate();
-	mips_usermode(tf);
+	as_activate();
+
+	struct trapframe tf_stack; // put the trapframe on stack
+	tf_stack = *tf;
+
+	mips_usermode(&tf_stack);
 }
