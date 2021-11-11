@@ -252,13 +252,15 @@ proc_fork(const char *name)
 	 * (We don't need to lock the new process, though, as we have
 	 * the only reference to it.)
 	 */
-	spinlock_acquire(&curproc->p_lock); // deadlock in on that spinlock, appears in fd_table_copy
+	spinlock_acquire(&curproc->p_lock); 
 	if (curthread->t_proc->p_cwd != NULL)
 	{
 		VOP_INCREF(curproc->p_cwd);
 		newproc->p_cwd = curproc->p_cwd;
 		struct fd_table *table = curproc->p_fdtable;
-		fd_table_copy(table, &new_fd_table);
+		if(table != NULL){
+			fd_table_copy(table, &new_fd_table);
+		}
 		newproc->p_fdtable = new_fd_table;
 	}
 	spinlock_release(&curthread->t_proc->p_lock);

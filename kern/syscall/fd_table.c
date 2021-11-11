@@ -137,14 +137,15 @@ int fd_table_get(struct fd_table *fd_table, int fd, struct fobj **fobj)
 void fd_table_copy(struct fd_table *fd_table, struct fd_table **new_fd_table){
     struct fd_table *table = kmalloc(sizeof(struct fd_table));
     KASSERT(table != NULL);
-    table->fd_table_lk = lock_create("fd_table");
-    lock_acquire(table->fd_table_lk);
+    table->fd_table_lk = lock_create("new_fd_table");
+    lock_acquire(fd_table->fd_table_lk); // no need to acquire lock of the new table yet
     for (int i = 0; i < MAX_OPEN_FILES; i++){
-        table->files[i] = fd_table->files[i];
+        struct fobj *obj = fd_table->files[i];
+        table->files[i] = obj;
         table->files[i]->refcount++;
         vnode_incref(table->files[i]->vn);
     }
-    lock_release(table->fd_table_lk);
+    lock_release(fd_table->fd_table_lk);
 
     *new_fd_table = table;
 }
