@@ -43,6 +43,7 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
 
     struct proc *child_proc = proc_fork("child process");
     child_proc->pid = get_next_pid();
+    add_proc(child_proc->pid, child_proc); //Add the process to the coressponding pid
     *pid = child_proc->pid;
 
     thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
@@ -54,3 +55,15 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
 // pid_t get_pid() {
 //     return curporc->pid;
 // }
+
+pid_t sys_waitpid(pid_t pid, int *status, int options){
+    (void) status;
+    (void) options;
+    struct proc *process = get_proc(pid);
+    (void) process;
+    return pid;
+}
+
+void sys_exit(int exitcode){
+    (void) exitcode;
+}

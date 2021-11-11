@@ -38,6 +38,7 @@
 
 #include <spinlock.h>
 #include <thread.h> /* required for struct threadarray */
+#include <limits.h>
 
 struct addrspace;
 struct vnode;
@@ -66,8 +67,12 @@ struct proc {
 struct pid_table 
 {
     struct lock *pid_lock;
-    pid_t next_pid;
-    int num_proc;
+    struct proc_pid *pids[PID_MAX];
+};
+
+struct proc_pid
+{
+	struct proc *process;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -99,7 +104,8 @@ struct addrspace *proc_setas(struct addrspace *);
 
 int pid_create(void);
 pid_t get_next_pid(void);
-void remove_pid(void);
-
+void remove_pid(pid_t pid);
+void add_proc(pid_t pid, struct proc *process);
+struct proc *get_proc(pid_t pid);
 
 #endif /* _PROC_H_ */

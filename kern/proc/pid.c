@@ -16,27 +16,37 @@ struct pid_table *table;
 int pid_create(void) {
     table = kmalloc(sizeof(struct pid_table));
     KASSERT(table != NULL);
-    table->num_proc = 0;
-    table->next_pid = 2;
+    for(int i = PID_MIN; i <= PID_MAX; i++){
+        table->pids[i]->process = NULL; //Set all process to NULL
+    }
     table->pid_lock = lock_create("pid_table");
     return 0;
 }
 
 pid_t get_next_pid(void) {
-    pid_t return_val;
     lock_acquire(table->pid_lock);
-    if (table->num_proc + 1 > PID_MAX) {
-        //do something
+    for (int i = PID_MIN; i <= PID_MAX; i++)
+    {
+        if(table->pids[i]->process == NULL){ //check for the first bid that has a NULL process
+            lock_release(table->pid_lock);
+            return (pid_t)i;
+        }
     }
-    table->next_pid++;
-    return_val = table->next_pid;
-    table->num_proc++;
     lock_release(table->pid_lock);
-    return return_val;
+    return -1; //TODO: proper error handling
 }
 
-void remove_pid(void) {
+void remove_pid(pid_t pid) {
     lock_acquire(table->pid_lock);
-    table->num_proc--;
+    table->pids[pid]->process = NULL; //set the process coressponding to the pid to NULL
     lock_release(table->pid_lock);
 }
+
+void add_proc(pid_t pid, struct proc *process){
+    table->pids[pid]->process = process;
+}
+
+struct proc *get_proc(pid_t pid){
+    return table->pids[pid]->process;
+}
+

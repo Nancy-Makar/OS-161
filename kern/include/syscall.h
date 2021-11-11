@@ -68,8 +68,11 @@ int sys_getcwd(userptr_t buf, size_t buflen, int *dataread);
 int sys_chdir(const_userptr_t pathname);
 
 int sys_fork(struct trapframe *tf, pid_t *pid);
+pid_t sys_waitpid(pid_t pid, int *status, int options);
+void sys_exit(int exitcode);
 
-struct proc_arg {
+    struct proc_arg
+{
     struct addrspace *as;
     struct trapframe *tf;
 };

@@ -9,7 +9,8 @@ proc_syscall.o: ../../syscall/proc_syscall.c ../../include/types.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/copyinout.h \
  ../../include/syscall.h ../../include/fd_table.h ../../include/vfs.h \
- ../../include/vnode.h ../../include/proc.h ../../include/uio.h \
+ ../../include/vnode.h ../../include/proc.h ../../include/limits.h \
+ ../../include/kern/limits.h ../../include/uio.h \
  ../../include/kern/iovec.h ../../include/kern/errno.h \
  ../../include/kern/fcntl.h ../../include/vm.h includelinks/machine/vm.h \
  ../../include/addrspace.h opt-dumbvm.h includelinks/mips/trapframe.h
