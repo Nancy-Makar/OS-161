@@ -17,6 +17,7 @@ int pid_create(void) {
     table = kmalloc(sizeof(struct pid_table));
     KASSERT(table != NULL);
     for(int i = PID_MIN; i <= PID_MAX; i++){
+        table->pids[i] = kmalloc(sizeof(struct proc_pid));
         table->pids[i]->process = NULL; //Set all process to NULL
     }
     table->pid_lock = lock_create("pid_table");
@@ -24,6 +25,13 @@ int pid_create(void) {
 }
 
 pid_t get_next_pid(void) {
+    int err;
+    if(table == NULL){
+        err = pid_create();
+        if(err){
+            return -1; //TODO: proper error handling
+        }
+    }
     lock_acquire(table->pid_lock);
     for (int i = PID_MIN; i <= PID_MAX; i++)
     {
