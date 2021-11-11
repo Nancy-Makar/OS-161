@@ -86,7 +86,7 @@ int fd_table_add(struct fd_table *table, struct fobj *newfile, int *fd) {
     }
     for (int i = 0; i < 32; i++){
         if(table->files[i] == NULL){
-            table->files[i] = newfile;
+            table->files[i] = newfile; //gives a deadlock (weird)
             *fd = i;
             lock_release(table->fd_table_lk);
             return 0;

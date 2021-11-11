@@ -66,4 +66,10 @@ pid_t sys_waitpid(pid_t pid, int *status, int options){
 
 void sys_exit(int exitcode){
     (void) exitcode;
+    pid_t pid = curthread->t_proc;
+    if(get_proc(pid) == NULL){ 
+
+    }
+    remove_pid(pid);
+    thread_exit();
 }
