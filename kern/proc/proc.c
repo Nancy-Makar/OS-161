@@ -257,12 +257,13 @@ proc_fork(const char *name)
 	{
 		VOP_INCREF(curproc->p_cwd);
 		newproc->p_cwd = curproc->p_cwd;
-		struct fd_table *table = curproc->p_fdtable;
-		if(table != NULL){
-			fd_table_copy(table, &new_fd_table);
-		}
+	}
+	struct fd_table *table = curproc->p_fdtable;
+	if(table != NULL){
+		fd_table_copy(table, &new_fd_table);
 		newproc->p_fdtable = new_fd_table;
 	}
+		
 	spinlock_release(&curthread->t_proc->p_lock);
 
 	return newproc;
