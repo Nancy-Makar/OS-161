@@ -253,6 +253,7 @@ proc_fork(const char *name)
 	 * the only reference to it.)
 	 */
 	spinlock_acquire(&curproc->p_lock); 
+	curproc->exited = 0;
 	if (curthread->t_proc->p_cwd != NULL)
 	{
 		VOP_INCREF(curproc->p_cwd);

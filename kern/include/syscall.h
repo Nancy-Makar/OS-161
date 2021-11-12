@@ -68,7 +68,7 @@ int sys_getcwd(userptr_t buf, size_t buflen, int *dataread);
 int sys_chdir(const_userptr_t pathname);
 
 int sys_fork(struct trapframe *tf, pid_t *pid);
-pid_t sys_waitpid(pid_t pid, int *status, int options);
+int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret);
 void sys_exit(int exitcode);
 void sys_getpid(pid_t *pid);
 

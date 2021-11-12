@@ -48,6 +48,7 @@ void remove_pid(pid_t pid) {
     table->proc_table[pid]->process = NULL; //set the process coressponding to the pid to NULL
     lock_destroy(table->proc_table[pid]->proc_lk);
     cv_destroy(table->proc_table[pid]->proc_cv);
+    kfree(table->proc_table[pid]);
     lock_release(table->pid_lock);
 }
 
@@ -62,5 +63,9 @@ void add_proc(pid_t pid, struct proc *process){
 
 struct proc *get_proc(pid_t pid){
     return table->proc_table[pid]->process;
+}
+
+struct proc_table *get_proc_table(pid_t pid){
+    return table->proc_table[pid];
 }
 

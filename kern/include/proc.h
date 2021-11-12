@@ -61,6 +61,8 @@ struct proc {
 
 	pid_t pid;
 
+	bool exited;
+
 	/* add more material here as needed */
 };
 
@@ -109,5 +111,6 @@ pid_t get_next_pid(void);
 void remove_pid(pid_t pid);
 void add_proc(pid_t pid, struct proc *process);
 struct proc *get_proc(pid_t pid);
+struct proc_table *get_proc_table(pid_t pid);
 
 #endif /* _PROC_H_ */
