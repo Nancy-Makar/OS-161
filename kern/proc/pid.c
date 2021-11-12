@@ -52,10 +52,12 @@ void remove_pid(pid_t pid) {
 }
 
 void add_proc(pid_t pid, struct proc *process){
+    lock_acquire(table->pid_lock);
     table->proc_table[pid] = kmalloc(sizeof(struct proc_table));
     table->proc_table[pid]->proc_lk = lock_create("lock for cv");
     table->proc_table[pid]->proc_cv = cv_create("cv");
     table->proc_table[pid]->process = process;
+    lock_release(table->pid_lock);
 }
 
 struct proc *get_proc(pid_t pid){
