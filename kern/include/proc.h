@@ -67,7 +67,13 @@ struct proc {
 struct pid_table 
 {
     struct lock *pid_lock;
-    struct proc *procs[PID_MAX + 1];
+    struct proc_table *proc_table[PID_MAX + 1];
+};
+
+struct proc_table {
+	struct lock *proc_lk;
+	struct cv *proc_cv;
+	struct proc *process;
 };
 
 
