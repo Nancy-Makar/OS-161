@@ -108,7 +108,7 @@ struct addrspace *proc_setas(struct addrspace *);
 
 int pid_create(void);
 pid_t get_next_pid(void);
-void remove_pid(pid_t pid);
+void remove_proc(pid_t pid);
 void add_proc(pid_t pid, struct proc *process);
 struct proc *get_proc(pid_t pid);
 struct proc_table *get_proc_table(pid_t pid);

@@ -171,7 +171,7 @@ main(int argc, char *argv[])
 {
 	static const char expected[] =
 		"|----------------------------|\n";
-	int nowait=0; //set wait to 1 until waitpid is implemented
+	int nowait=1; //set wait to 1 until waitpid is implemented
 
 	if (argc==2 && !strcmp(argv[1], "-w")) {
 		nowait=1;

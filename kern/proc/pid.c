@@ -12,7 +12,6 @@
 #include <limits.h>
 
 struct pid_table *table;
-
 int pid_create(void) {
     table = kmalloc(sizeof(struct pid_table));
     KASSERT(table != NULL);
@@ -43,7 +42,7 @@ pid_t get_next_pid(void) {
     return -1; //TODO: proper error handling
 }
 
-void remove_pid(pid_t pid) {
+void remove_proc(pid_t pid) {
     lock_acquire(table->pid_lock);
     table->proc_table[pid]->process = NULL; //set the process coressponding to the pid to NULL
     lock_destroy(table->proc_table[pid]->proc_lk);
@@ -62,10 +61,14 @@ void add_proc(pid_t pid, struct proc *process){
 }
 
 struct proc *get_proc(pid_t pid){
+    lock_acquire(table->pid_lock);
     return table->proc_table[pid]->process;
+    lock_release(table->pid_lock);
 }
 
 struct proc_table *get_proc_table(pid_t pid){
+    lock_acquire(table->pid_lock);
     return table->proc_table[pid];
+    lock_release(table->pid_lock);
 }
 

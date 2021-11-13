@@ -193,6 +193,10 @@ syscall(struct trapframe *tf)
 		// 			&retval);
 		// break;
 
+		case 3:
+		err = sys_exit(tf->tf_a0);
+		break;
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
@@ -259,6 +263,8 @@ enter_forked_process(void *proc_args, unsigned long taylor)
 
 	struct trapframe tf_stack; // put the trapframe on stack
 	tf_stack = *tf;
+	// tf_stack.tf_v0 = 0;
+	// tf_stack.tf_epc += 4;
 
 	mips_usermode(&tf_stack);
 }

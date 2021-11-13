@@ -24,40 +24,53 @@
 #include <copyinout.h>
 #include <lib.h>
 #include <spl.h>
+#include <kern/wait.h>
+
+struct lock *forklock;
 
 int sys_fork(struct trapframe *tf,  pid_t *pid) {
     (void)pid;
+    //int spl = splhigh();
     struct proc *p;
     struct addrspace *as;
+    struct addrspace *newas;
+    struct trapframe *newtf = kmalloc(sizeof(struct trapframe));
+    struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
+    int err;
+
+    if(forklock == NULL){
+        forklock = lock_create("fork_lock");
+    }
+
+    lock_acquire(forklock);
+   
+
     p = curthread->t_proc;
     as = p->p_addrspace;
 
-    struct addrspace *newas;
-    
-
-    struct trapframe *newtf = kmalloc(sizeof(struct trapframe));
-    //memcpy(newtf, tf, sizeof(struct trapframe));
-
-    *newtf = *tf;
-    newtf->tf_v0 = 0;
-    newtf->tf_epc += 4;
-
-
-    int spl = splhigh();  //during debugging, I found that a context switch happens during as_copy so I disabled interrupts
     as_copy(as, &newas);
-    splx(spl);
 
-    struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
+    struct proc *child_proc = proc_fork("child process");
+
+    child_proc->pid = get_next_pid();
+
+    add_proc(child_proc->pid, child_proc); //Add the process to the coressponding pid
+    *pid = child_proc->pid;
+    *newtf = *tf;
+
     new_proc_arg->as = newas;
     new_proc_arg->tf = newtf;
 
-    struct proc *child_proc = proc_fork("child process");
-    child_proc->pid = get_next_pid();
-    add_proc(child_proc->pid, child_proc); //Add the process to the coressponding pid
-    *pid = child_proc->pid;
+    newtf->tf_v0 = 0;
+    newtf->tf_a3 = 0;
+    newtf->tf_epc += 4;
 
-    thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
+    lock_release(forklock);
 
+    err = thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
+    if(err){  
+       return err;
+    }
     return 0;
 }
 
@@ -88,19 +101,32 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret){
     return 0;
 }
 
-void sys_exit(int exitcode){
+int sys_exit(int exitcode){
     (void) exitcode;
     pid_t pid = curthread->t_proc->pid;
-    if(get_proc(pid) == NULL){
-       // _MKWAIT_SIG(exitcode);
-        //other stuff
+
+    lock_acquire(forklock);
+    if (get_proc(pid) == NULL || curthread->t_proc->exited)
+    {
+        lock_release(forklock);
+        int e = _MKWAIT_SIG(exitcode);
+        
+        return e;
+        // other stuff
     }
-    struct proc_table *process_entry = get_proc_table(pid);
-    spinlock_acquire(&curthread->t_proc->p_lock);
+    // struct proc_table *process_entry = get_proc_table(pid);
+    // spinlock_acquire(&curthread->t_proc->p_lock);
+    
+    // cv_broadcast(process_entry->proc_cv, process_entry->proc_lk);
+    
+    remove_proc(pid);
+    
+    int e = _MKWAIT_EXIT(exitcode);
+    (void) e;
     curthread->t_proc->exited = 1;
-    cv_broadcast(process_entry->proc_cv, process_entry->proc_lk);
-    remove_pid(pid);
-    //_MKWAIT_EXIT(exitcode);
-    spinlock_release(&curthread->t_proc->p_lock);
+    lock_release(forklock);
+
+    //spinlock_release(&curthread->t_proc->p_lock);
     thread_exit();
+    return 0;
 }
