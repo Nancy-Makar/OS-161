@@ -30,7 +30,7 @@ struct lock *forklock;
 
 int sys_fork(struct trapframe *tf,  pid_t *pid) {
     (void)pid;
-    //int spl = splhigh();
+    
     struct proc *p;
     struct addrspace *as;
     struct addrspace *newas;
@@ -65,68 +65,67 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     newtf->tf_a3 = 0;
     newtf->tf_epc += 4;
 
-    lock_release(forklock);
+    //lock_release(forklock);
 
     err = thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
-    if(err){  
-       return err;
+    if(err){
+        lock_release(forklock);
+        return err;
     }
+    lock_release(forklock);
     return 0;
 }
 
 void sys_getpid(pid_t *pid)
 {
-    *pid = curthread->t_proc->pid;
+    *pid = curproc->pid;
 }
 
-int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret){
-    (void) status;
-    (void) options;
-    struct proc *process = get_proc(pid);
-    struct proc_table *process_entry = get_proc_table(pid);
-
-    spinlock_acquire(&process->p_lock);
-    if (&curthread->t_proc->exited)
+int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
+{
+    (void)pid;
+    if (options != 0)
     {
-        //Do Something
-        spinlock_release(&process->p_lock);
-        return 1; //TODO: proper error handling
+        return EINVAL;
     }
-    spinlock_release(&process->p_lock);
-
-    lock_acquire(process_entry->proc_lk);
-    cv_wait(process_entry->proc_cv, process_entry->proc_lk);
-    lock_release(process_entry->proc_lk);
-    *ret = pid;
+    (void)status;
+    struct proc *p = get_proc(pid);
+    if (p != NULL)
+    {
+        spinlock_acquire(&p->p_lock);
+        if (p->exited)
+        {
+            return 0;
+        }
+        spinlock_release(&p->p_lock);
+        while (p->exited)
+        {
+            thread_yield();
+        }
+        *ret = *status; // will this work?
+    }
     return 0;
 }
 
-int sys_exit(int exitcode){
-    (void) exitcode;
-    pid_t pid = curthread->t_proc->pid;
-
-    lock_acquire(forklock);
-    if (get_proc(pid) == NULL || curthread->t_proc->exited)
+    int sys_exit(int exitcode)
     {
-        lock_release(forklock);
-        int e = _MKWAIT_SIG(exitcode);
+        (void)exitcode;
+        lock_acquire(forklock);
+        pid_t pid = curproc->pid;
+        if (curproc->exited || get_proc(pid) == NULL)
+        {
+            int e = _MKWAIT_SIG(exitcode);
+            lock_release(forklock);
+            return e;
+        }
+        curproc->exited = 1;
+        int e = _MKWAIT_EXIT(exitcode);
+        (void)e;
+        //remove_proc(pid);
         
-        return e;
-        // other stuff
-    }
-    // struct proc_table *process_entry = get_proc_table(pid);
-    // spinlock_acquire(&curthread->t_proc->p_lock);
-    
-    // cv_broadcast(process_entry->proc_cv, process_entry->proc_lk);
-    
-    remove_proc(pid);
-    
-    int e = _MKWAIT_EXIT(exitcode);
-    (void) e;
-    curthread->t_proc->exited = 1;
-    lock_release(forklock);
 
-    //spinlock_release(&curthread->t_proc->p_lock);
-    thread_exit();
-    return 0;
-}
+        thread_exit();
+        lock_release(forklock);
+
+        return 0;
+    }

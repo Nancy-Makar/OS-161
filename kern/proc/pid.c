@@ -44,7 +44,7 @@ pid_t get_next_pid(void) {
 
 void remove_proc(pid_t pid) {
     lock_acquire(table->pid_lock);
-    table->proc_table[pid]->process = NULL; //set the process coressponding to the pid to NULL
+    proc_destroy(table->proc_table[pid]->process); 
     lock_destroy(table->proc_table[pid]->proc_lk);
     cv_destroy(table->proc_table[pid]->proc_cv);
     kfree(table->proc_table[pid]);
@@ -62,13 +62,18 @@ void add_proc(pid_t pid, struct proc *process){
 
 struct proc *get_proc(pid_t pid){
     lock_acquire(table->pid_lock);
-    return table->proc_table[pid]->process;
+    if((int)pid <= PID_MAX && (int)pid >= PID_MIN){
+        if(table->proc_table[pid] != NULL){
+            lock_release(table->pid_lock);
+            return table->proc_table[pid]->process; 
+        }      
+    }
+
     lock_release(table->pid_lock);
+    return NULL;
 }
 
 struct proc_table *get_proc_table(pid_t pid){
-    lock_acquire(table->pid_lock);
     return table->proc_table[pid];
-    lock_release(table->pid_lock);
 }
 
