@@ -20,174 +20,213 @@
 #include <kern/fcntl.h>
 #include <vm.h>
 #include <addrspace.h>
-#include<mips/trapframe.h>
+#include <mips/trapframe.h>
 #include <copyinout.h>
 #include <lib.h>
 #include <spl.h>
 #include <limits.h>
+#include <kern/wait.h>
+
+struct lock *forklock;
 
 int sys_fork(struct trapframe *tf,  pid_t *pid) {
     (void)pid;
+    
     struct proc *p;
     struct addrspace *as;
+    struct addrspace *newas;
+    struct trapframe *newtf = kmalloc(sizeof(struct trapframe));
+    struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
+    int err;
+
+    if(forklock == NULL){
+        forklock = lock_create("fork_lock");
+    }
+
+    lock_acquire(forklock);
+   
+
     p = curthread->t_proc;
     as = p->p_addrspace;
 
-    struct addrspace *newas;
-    
-
-    struct trapframe *newtf = kmalloc(sizeof(struct trapframe));
-    //memcpy(newtf, tf, sizeof(struct trapframe));
-
-    *newtf = *tf;
-    newtf->tf_v0 = 0;
-    newtf->tf_epc += 4;
-
-
-    int spl = splhigh();  //during debugging, I found that a context switch happens during as_copy so I disabled interrupts
     as_copy(as, &newas);
-    splx(spl);
 
-    struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
+    struct proc *child_proc = proc_fork("child process");
+
+    child_proc->pid = get_next_pid();
+    *pid = child_proc->pid;
+    *newtf = *tf;
+
     new_proc_arg->as = newas;
     new_proc_arg->tf = newtf;
 
-    struct proc *child_proc = proc_fork("child process");
-    child_proc->pid = get_next_pid();
-    add_proc(child_proc->pid, child_proc); //Add the process to the coressponding pid
-    *pid = child_proc->pid;
+    newtf->tf_v0 = 0;
+    newtf->tf_a3 = 0;
+    newtf->tf_epc += 4;
 
-    thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
+    //lock_release(forklock);
 
+    err = thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
+    if(err){
+        lock_release(forklock);
+        return err;
+    }
+    lock_release(forklock);
     return 0;
 }
 
-int sys_execv(const char *program, char **args) {
+int sys_execv(const_userptr_t program, char **args) {
 
-    //PART 1: DO THE ARGUMENTS...Find the number of arguments in args
-    int count = 0;
+    //PART 0: copy in the program name
+    char kernel_program[PATH_MAX];
     int err = 0;
-    do {
-        count++;
-        err = copyin((const_userptr_t) &args[i], (void *) arg, sizeof(char *));
-    } while (arg != null);
+    err = copyinstr(program, kernel_program, PATH_MAX, NULL);
+    if (err || kernel_program == NULL) {
+        //free up stuff
+        return -1;
+    }
 
-    char **kernel_args = kmalloc(sizeof(char **) * i);
+    //PART 1: DO THE ARGUMENTS...Find the number of arguments in args. Set count to 1 to account for null terminator
+    int count = -1;
+    char *arg= NULL; //Not important
+    do {
+        err = copyin((const_userptr_t) &args[count], &arg, sizeof(char *));
+        count++;
+    } while (arg != NULL);
+    
+    //Kernel_args is an array with count arguments, a program name in the first slot and a null terminated ending
+    char **kernel_args = kmalloc(sizeof(char **) * (count + 1));
     if (kernel_args == NULL) return -1;  //some error
 
     int remaining_bytes = ARG_MAX;
+
     for (int i = 0; i < count; i++)  {
         //size of string plus null terminator
-        int size = strlen(args[i]) + 1;
+        int size = (strlen(args[i]) + 1)*(sizeof(char));
 
         //Too many arguments
         if (remaining_bytes - size < 0) {
-            //Free all arguments
-            for (int j = 0; j < i; j++) {
-                kfree(kernel_args[j]);
-            }
-            kfree(kernel_args);
-            return -1; //TODO: figure out what to return
+            //free up stuff
+            return -1;
         }
 
         kernel_args[i] = kmalloc(size);
         if (kernel_args[i] == NULL) {
-            //Free all arguments
-            for (int j = 0; j < i; j++) {
-                kfree(kernel_args[j]);
-            }
-            kfree(kernel_args);
-            return -1;  //TODO: figure out what to return
+            //free up stuff
+            return -1;
         }
-        err = copyinstr(args[i], kernel_args[i], size, NULL);
+        err = copyinstr((const_userptr_t) args[i], kernel_args[i], size, NULL);
         if (err) {
-            //Free all arguments
-            for (int j = 0; j < i; j++) {
-                kfree(kernel_args[j]);
-            }
-            kfree(kernel_args);
-            return err;
+            //free up stuff
+            return -1;
         }
-    } 
-    
-    //PART 2: copy in the program name
-    char *kernel_program;
-    kernel_program = kmalloc(PATH_MAX);
-    err = copyinstr(program, kernel_program, PATH_MAX, NULL);
-    if (err || kernel_program == NULL) {
-        //Free all arguments
-        for (int j = 0; j < count; j++) {
-            kfree(kernel_args[j]);
-        }
-        kfree(kernel_args);
-        kfree(kernel_program);
-        return -1;  //TODO: figure out what to return
     }
 
+    kernel_args[count] = NULL;
+    
     //PART 3: create new address space
     struct addrspace *newaddr = as_create();
     struct addrspace *oldaddr = proc_setas(newaddr);
 
     //PART 4: load executable
     struct vnode *exc_v;
-    err = vfs_open(kernel_program, O_RDONLY, &exc_v);
+    err = vfs_open(kernel_program, O_RDONLY, 0, &exc_v);
     if (err) {
         //free up stuff
         return -1;
     }
 
-    vaddr_t *entrypoint;
+    vaddr_t entrypoint;
     err = load_elf(exc_v, &entrypoint);
     if (err) {
         //free up stuff
         return -1;
     }
 
-    //PART 5: define a new stack region
-    vaddr_t *stackptr;
-    as_define_stack(newaddr, &stackptr);
+    //PART 5: define a new stack region for us to copy our arguments to
+    vaddr_t stackptr;
+    err = as_define_stack(newaddr, &stackptr);
+    if (err) {
+        //free up stuff
+        return -1;
+    }
+
+    //PART 6: Copy arguments to new address space
+    //Create an array structure to hold the addresses of the arguments (plus null)
+    vaddr_t *arg_addresses = (vaddr_t *)kmalloc((count + 1) *sizeof(vaddr_t));
+    if (arg_addresses == NULL) {
+        //free up stuff
+        return -1;
+    }
+
+    //Move backwards, top of stack will have last argument
+    for (int i = count - 1; i >= 0; i--) {
+
+        //Need to ensure our arguments are aligned to 4 bytes (size of vaddr_t)
+        size_t arg_len = strlen(kernel_args[i]) + 1;
+        size_t arg_len_adj = ((arg_len + sizeof(vaddr_t) - 1) / sizeof(vaddr_t)) * sizeof(vaddr_t);
+        stackptr -= (arg_len_adj * sizeof(char));
+        arg_addresses[i] = stackptr;
+
+        err = copyoutstr((void*) kernel_args[i], (userptr_t) stackptr, arg_len, NULL);
+        if (err) {
+            //free up stuff
+            return -1;
+        }
+    }
+    //Now, put our pointers onto the stack
+    for (int i = count; i >= 0; i--) {
+        stackptr -= sizeof(vaddr_t);
+        err = copyout((void*) &arg_addresses[i], (userptr_t) stackptr, sizeof(vaddr_t));
+        if (err) {
+            //free up stuff
+            return -1;
+        }
+    }
+    //PART 7: Clean up the old address space and structures
+    as_destroy(oldaddr);
+
+    //PART 8:
+    userptr_t argv = (userptr_t) stackptr;
+    enter_new_process(count, argv, NULL, stackptr, entrypoint);
 }
 
 void sys_getpid(pid_t *pid)
 {
-    *pid = curthread->t_proc->pid;
+    *pid = curproc->pid;
 }
 
-int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret){
-    (void) status;
-    (void) options;
-    struct proc *process = get_proc(pid);
-    struct proc_table *process_entry = get_proc_table(pid);
-
-    spinlock_acquire(&process->p_lock);
-    if (&curthread->t_proc->exited)
+int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
+{
+    int err;
+    if (options != 0)
     {
-        //Do Something
-        spinlock_release(&process->p_lock);
-        return 1; //TODO: proper error handling
+        return EINVAL;
     }
-    spinlock_release(&process->p_lock);
+    if (status == NULL) 
+    {
+        return -1;
+    }
 
-    lock_acquire(process_entry->proc_lk);
-    cv_wait(process_entry->proc_cv, process_entry->proc_lk);
-    lock_release(process_entry->proc_lk);
+    err = pid_wait(pid, status);
+    if (err) {
+        return err;
+    }
     *ret = pid;
     return 0;
 }
 
-void sys_exit(int exitcode){
-    (void) exitcode;
-    pid_t pid = curthread->t_proc->pid;
-    if(get_proc(pid) == NULL){
-       // _MKWAIT_SIG(exitcode);
-        //other stuff
+int sys_exit(int exitcode)
+{
+    int err = 0;
+    pid_t pid = curproc->pid;
+    if (pid < 0) {
+        thread_exit();
     }
-    struct proc_table *process_entry = get_proc_table(pid);
-    spinlock_acquire(&curthread->t_proc->p_lock);
-    curthread->t_proc->exited = 1;
-    cv_broadcast(process_entry->proc_cv, process_entry->proc_lk);
-    remove_pid(pid);
-    //_MKWAIT_EXIT(exitcode);
-    spinlock_release(&curthread->t_proc->p_lock);
+    err = pid_exit(pid, exitcode);
+    if (err) {
+        return err;
+    }
     thread_exit();
+    return 0; //We should never get here
 }

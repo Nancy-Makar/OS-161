@@ -13,4 +13,5 @@ proc_syscall.o: ../../syscall/proc_syscall.c ../../include/types.h \
  ../../include/kern/limits.h ../../include/uio.h \
  ../../include/kern/iovec.h ../../include/kern/errno.h \
  ../../include/kern/fcntl.h ../../include/vm.h includelinks/machine/vm.h \
- ../../include/addrspace.h opt-dumbvm.h includelinks/mips/trapframe.h
+ ../../include/addrspace.h opt-dumbvm.h includelinks/mips/trapframe.h \
+ ../../include/spl.h ../../include/kern/wait.h

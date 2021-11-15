@@ -10,4 +10,5 @@ syscall.o: ../../arch/mips/syscall/syscall.c ../../include/types.h \
  includelinks/machine/current.h ../../include/syscall.h \
  ../../include/limits.h ../../include/kern/limits.h \
  ../../include/copyinout.h ../../include/addrspace.h ../../include/vm.h \
- includelinks/machine/vm.h opt-dumbvm.h ../../include/proc.h
+ includelinks/machine/vm.h opt-dumbvm.h ../../include/proc.h \
+ ../../include/synch.h

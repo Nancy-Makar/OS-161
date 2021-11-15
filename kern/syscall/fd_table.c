@@ -142,8 +142,10 @@ void fd_table_copy(struct fd_table *fd_table, struct fd_table **new_fd_table){
     for (int i = 0; i < MAX_OPEN_FILES; i++){
         struct fobj *obj = fd_table->files[i];
         table->files[i] = obj;
-        table->files[i]->refcount++;
-        vnode_incref(table->files[i]->vn);
+        if (obj != NULL) {
+            table->files[i]->refcount++;
+            vnode_incref(table->files[i]->vn);
+        }
     }
     lock_release(fd_table->fd_table_lk);
 

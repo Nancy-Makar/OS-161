@@ -252,7 +252,7 @@ proc_fork(const char *name)
 	 * (We don't need to lock the new process, though, as we have
 	 * the only reference to it.)
 	 */
-	spinlock_acquire(&curproc->p_lock); 
+	//spinlock_acquire(&curproc->p_lock); 
 	curproc->exited = 0;
 	if (curthread->t_proc->p_cwd != NULL)
 	{
@@ -265,7 +265,7 @@ proc_fork(const char *name)
 		newproc->p_fdtable = new_fd_table;
 	}
 		
-	spinlock_release(&curthread->t_proc->p_lock);
+	//spinlock_release(&curthread->t_proc->p_lock);
 
 	return newproc;
 }

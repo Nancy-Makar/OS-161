@@ -69,7 +69,7 @@ int sys_chdir(const_userptr_t pathname);
 
 int sys_fork(struct trapframe *tf, pid_t *pid);
 int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret);
-void sys_exit(int exitcode);
+int sys_exit(int exitcode);
 void sys_getpid(pid_t *pid);
 
     struct proc_arg
@@ -77,5 +77,6 @@ void sys_getpid(pid_t *pid);
     struct addrspace *as;
     struct trapframe *tf;
 };
+int sys_execv(const_userptr_t program, char **args);
 
 #endif /* _SYSCALL_H_ */

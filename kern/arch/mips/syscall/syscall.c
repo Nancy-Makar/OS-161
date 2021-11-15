@@ -186,9 +186,9 @@ syscall(struct trapframe *tf)
 		sys_getpid(&retval);
 		break;
 
-		case sys_execv:
-		err = sys_execv((userptr_t) tf->tf_a0,
-						(userptr_t) tf->tf_a1);
+		case SYS_execv:
+		err = sys_execv((const_userptr_t) tf->tf_a0,
+						(char**) tf->tf_a1);
 		break;
 
 		// case SYS_waitpid:
@@ -197,6 +197,10 @@ syscall(struct trapframe *tf)
 		// 			tf->tf_a2,
 		// 			&retval);
 		// break;
+
+		case 3:
+		err = sys_exit(tf->tf_a0);
+		break;
 
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
@@ -264,6 +268,8 @@ enter_forked_process(void *proc_args, unsigned long taylor)
 
 	struct trapframe tf_stack; // put the trapframe on stack
 	tf_stack = *tf;
+	// tf_stack.tf_v0 = 0;
+	// tf_stack.tf_epc += 4;
 
 	mips_usermode(&tf_stack);
 }
