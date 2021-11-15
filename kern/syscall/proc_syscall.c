@@ -24,6 +24,7 @@
 #include <copyinout.h>
 #include <lib.h>
 #include <spl.h>
+#include <limits.h>
 
 int sys_fork(struct trapframe *tf,  pid_t *pid) {
     (void)pid;
@@ -59,6 +60,92 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
 
     return 0;
+}
+
+int sys_execv(const char *program, char **args) {
+
+    //PART 1: DO THE ARGUMENTS...Find the number of arguments in args
+    int count = 0;
+    int err = 0;
+    do {
+        count++;
+        err = copyin((const_userptr_t) &args[i], (void *) arg, sizeof(char *));
+    } while (arg != null);
+
+    char **kernel_args = kmalloc(sizeof(char **) * i);
+    if (kernel_args == NULL) return -1;  //some error
+
+    int remaining_bytes = ARG_MAX;
+    for (int i = 0; i < count; i++)  {
+        //size of string plus null terminator
+        int size = strlen(args[i]) + 1;
+
+        //Too many arguments
+        if (remaining_bytes - size < 0) {
+            //Free all arguments
+            for (int j = 0; j < i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
+            return -1; //TODO: figure out what to return
+        }
+
+        kernel_args[i] = kmalloc(size);
+        if (kernel_args[i] == NULL) {
+            //Free all arguments
+            for (int j = 0; j < i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
+            return -1;  //TODO: figure out what to return
+        }
+        err = copyinstr(args[i], kernel_args[i], size, NULL);
+        if (err) {
+            //Free all arguments
+            for (int j = 0; j < i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
+            return err;
+        }
+    } 
+    
+    //PART 2: copy in the program name
+    char *kernel_program;
+    kernel_program = kmalloc(PATH_MAX);
+    err = copyinstr(program, kernel_program, PATH_MAX, NULL);
+    if (err || kernel_program == NULL) {
+        //Free all arguments
+        for (int j = 0; j < count; j++) {
+            kfree(kernel_args[j]);
+        }
+        kfree(kernel_args);
+        kfree(kernel_program);
+        return -1;  //TODO: figure out what to return
+    }
+
+    //PART 3: create new address space
+    struct addrspace *newaddr = as_create();
+    struct addrspace *oldaddr = proc_setas(newaddr);
+
+    //PART 4: load executable
+    struct vnode *exc_v;
+    err = vfs_open(kernel_program, O_RDONLY, &exc_v);
+    if (err) {
+        //free up stuff
+        return -1;
+    }
+
+    vaddr_t *entrypoint;
+    err = load_elf(exc_v, &entrypoint);
+    if (err) {
+        //free up stuff
+        return -1;
+    }
+
+    //PART 5: define a new stack region
+    vaddr_t *stackptr;
+    as_define_stack(newaddr, &stackptr);
 }
 
 void sys_getpid(pid_t *pid)
