@@ -69,6 +69,7 @@ int pid_exit(pid_t pid_no, int exitcode) {
     }
     if (pid_obj->exited)
     {
+        cv_broadcast(pid_obj->pid_cv, table->pid_lock);
         lock_release(table->pid_lock);
         int e = _MKWAIT_SIG(exitcode);
         return e;

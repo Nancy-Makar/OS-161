@@ -43,7 +43,7 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
         forklock = lock_create("fork_lock");
     }
 
-    //lock_acquire(forklock);
+    lock_acquire(forklock);
    
 
     p = curthread->t_proc;
@@ -64,14 +64,12 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     newtf->tf_a3 = 0;
     newtf->tf_epc += 4;
 
-    //lock_release(forklock);
-
     err = thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
     if(err){
-        //lock_release(forklock);
+        lock_release(forklock);
         return err;
     }
-    //lock_release(forklock);
+    lock_release(forklock);
     return 0;
 }
 
