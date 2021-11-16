@@ -79,6 +79,7 @@ struct pid_obj
 struct pid_table 
 {
     struct lock *pid_lock;
+	struct lock *pid_cv_lock;
     struct pid_obj *pid_objs[PID_MAX + 1];
 };
 

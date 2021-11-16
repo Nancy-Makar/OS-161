@@ -67,7 +67,7 @@ int pid_exit(pid_t pid_no, int exitcode) {
         lock_release(table->pid_lock);
         return 0;
     }
-    if (pid_obj->exited || pid_obj == NULL)
+    if (pid_obj->exited)
     {
         lock_release(table->pid_lock);
         int e = _MKWAIT_SIG(exitcode);
@@ -89,7 +89,7 @@ int pid_wait(pid_t pid_no, int *status) {
     if (pid_obj == NULL) {
         return -1; //TODO: error handle
     }
-
+    
     //If pid has not already exited
     while (!pid_obj->exited) {
         cv_wait(pid_obj->pid_cv, table->pid_lock);

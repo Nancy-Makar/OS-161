@@ -220,6 +220,7 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+	newproc->pid = get_next_pid();
 
 	return newproc;
 }
