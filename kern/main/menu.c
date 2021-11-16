@@ -133,7 +133,8 @@ common_prog(int nargs, char **args)
 			args /* thread arg */, nargs /* thread arg */);
 
 	int status;
-	sys_waitpid(proc->pid, &status, 0, NULL);
+	int ret;
+	sys_waitpid(proc->pid, &status, 0, &ret);
 
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
