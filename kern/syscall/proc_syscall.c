@@ -85,13 +85,14 @@ int sys_execv(const_userptr_t program, char **args) {
     }
 
     //PART 1: DO THE ARGUMENTS...Find the number of arguments in args. Set count to 1 to account for null terminator
-    int count = -1;
-    char *arg= NULL; //Not important
+    int count = 0;
+    char* arg = NULL; 
     do {
         err = copyin((const_userptr_t) &args[count], &arg, sizeof(char *));
         count++;
-    } while (arg != NULL);
-    
+    } while (arg);
+    count--;
+
     //Kernel_args is an array with count arguments, a program name in the first slot and a null terminated ending
     char **kernel_args = kmalloc(sizeof(char **) * (count + 1));
     if (kernel_args == NULL) return -1;  //some error
