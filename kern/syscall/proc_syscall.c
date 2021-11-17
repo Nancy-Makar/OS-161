@@ -199,14 +199,14 @@ void sys_getpid(pid_t *pid)
 int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
 {
     int err;
+
+    if (pid > PID_MAX || pid <= 0) {
+        return ENOSYS;
+    }
     
     if (options != 0)
     {
         return EINVAL;
-    }
-    if (status == NULL)
-    {
-        return EFAULT;
     }
     if (!curproc->children[pid] && curproc->pid != 0 && curproc->pid != 1)
     {

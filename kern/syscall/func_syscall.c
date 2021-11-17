@@ -186,9 +186,6 @@ int sys_write(int fd, void *buf, size_t nbytes, int32_t *count) {
 
     //Ensures buf is safe and stores it into kbuf
     err = copyin((const_userptr_t) buf, kbuf, nbytes);
-    if (err) {
-        return err;
-    }
 
     p = curthread->t_proc;
 

@@ -11,6 +11,7 @@
 #include <kern/fcntl.h>
 #include <limits.h>
 #include <kern/wait.h>
+#include <copyinout.h>
 
 struct pid_table *table;
 struct pid_obj;
@@ -87,8 +88,9 @@ int pid_exit(pid_t pid_no, int exitcode) {
 int pid_wait(pid_t pid_no, int *status) {
     lock_acquire(table->pid_lock);
     struct pid_obj *pid_obj = get_pid(pid_no);
+    int err;
     if (pid_obj == NULL) {
-        return -1; //TODO: error handle
+        return ESRCH; //TODO: error handle
     }
     
     //If pid has not already exited
@@ -98,31 +100,18 @@ int pid_wait(pid_t pid_no, int *status) {
 
     //If pid has exited
     if (pid_obj->exited) {
-        *status = pid_obj->exitstatus;
+        if (status) {
+            err = copyout(&pid_obj->exitstatus, (userptr_t) status, sizeof(int));
+            if (err) {
+                lock_release(table->pid_lock);
+                return err;
+            }
+        }
     }
     lock_release(table->pid_lock);
     return 0;
 }
 
 
-
-// void add_proc(pid_t pid, struct proc *process){
-//     lock_acquire(table->pid_lock);
-//     table->procs[pid]= process;
-//     lock_release(table->pid_lock);
-// }
-
-// struct proc *get_proc(pid_t pid){
-//     lock_acquire(table->pid_lock);
-//     if((int)pid <= PID_MAX && (int)pid >= PID_MIN){
-//         if(table->procs[pid] != NULL){
-//             lock_release(table->pid_lock);
-//             return table->procs[pid]; 
-//         }      
-//     }
-
-//     lock_release(table->pid_lock);
-//     return NULL;
-// }
 
 
