@@ -64,6 +64,7 @@ struct proc {
 
 	bool exited;
 
+	bool children[PID_MAX+1];
 	/* add more material here as needed */
 };
 

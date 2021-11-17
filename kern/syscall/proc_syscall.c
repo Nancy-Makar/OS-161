@@ -69,6 +69,7 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
         lock_release(forklock);
         return err;
     }
+    curproc->children[(int)*pid] = 1;
     lock_release(forklock);
     return 0;
 }
@@ -198,14 +199,24 @@ void sys_getpid(pid_t *pid)
 int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
 {
     int err;
+    
     if (options != 0)
     {
         return EINVAL;
     }
-    if (status == NULL) 
+    if (status == NULL)
     {
-        return -1;
+        return EFAULT;
     }
+    if (!curproc->children[pid] && curproc->pid != 0 && curproc->pid != 1)
+    {
+        return ECHILD;
+    }
+    if (get_pid(pid) == NULL)
+    {
+        return ESRCH;
+    }
+    
 
     err = pid_wait(pid, status);
     if (err) {
@@ -220,7 +231,7 @@ int sys_exit(int exitcode)
     int err = 0;
     pid_t pid = curproc->pid;
     if (pid < 0) {
-        thread_exit();
+        return -1; //proper error handling
     }
     err = pid_exit(pid, exitcode);
     if (err) {
