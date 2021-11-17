@@ -55,7 +55,8 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
 
     child_proc->pid = get_next_pid();
     *pid = child_proc->pid;
-    *newtf = *tf;
+    
+    memcpy(newtf, tf, sizeof(struct trapframe));
 
     new_proc_arg->as = newas;
     new_proc_arg->tf = newtf;
@@ -200,8 +201,12 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
 {
     int err;
 
-    if (pid > PID_MAX || pid <= 0) {
+    if (pid < 0) {
         return ENOSYS;
+    }
+
+    if(pid > PID_MAX){
+        return ESRCH;
     }
     
     if (options != 0)
@@ -222,7 +227,7 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
     if (err) {
         return err;
     }
-    *ret = pid;
+    *ret = get_pid(pid)->exitstatus;
     return 0;
 }
 
@@ -237,6 +242,11 @@ int sys_exit(int exitcode)
     if (err) {
         return err;
     }
+    if(curproc != NULL){     //TA said we should destroy process to prevent memory leaks
+    if (threadarray_num(&curproc->p_threads) == 0)
+    proc_destroy(curproc);
+    }
     thread_exit();
+    
     return 0; //We should never get here
 }
