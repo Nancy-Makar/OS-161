@@ -33,6 +33,7 @@
 
 #include <cdefs.h> /* for __DEAD */
 struct trapframe; /* from <machine/trapframe.h> */
+int NO_WAIT;
 
 /*
  * The system call dispatcher.

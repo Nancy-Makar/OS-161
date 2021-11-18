@@ -70,11 +70,11 @@ int pid_exit(pid_t pid_no, int exitcode, bool trap) {
     }
     if (trap)
     {
-        cv_broadcast(pid_obj->pid_cv, table->pid_lock);
-        lock_release(table->pid_lock);
         int e = _MKWAIT_SIG(exitcode);
         pid_obj->exitstatus = e;
         pid_obj->exited = true;
+        cv_broadcast(pid_obj->pid_cv, table->pid_lock);
+        lock_release(table->pid_lock);
         return 0;
     }
     //Set the fields for the pid_obj

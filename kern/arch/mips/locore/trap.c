@@ -114,9 +114,14 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 
 	kprintf("Fatal user mode trap %u sig %d (%s, epc 0x%x, vaddr 0x%x)\n",
 		code, sig, trapcodenames[code], epc, vaddr);
-	// int e = _MKWAIT_SIG(sig);
-	// (void)e;
-	sys_exit(sig, 1);
+	int send_sig;
+	if(NO_WAIT){
+		send_sig = 0;
+	}
+	else{
+		send_sig = 1;
+	}
+	sys_exit(sig, send_sig);
 	//panic("I don't know how to handle this\n");
 }
 

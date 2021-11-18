@@ -30,8 +30,7 @@
 struct lock *forklock;
 
 int sys_fork(struct trapframe *tf,  pid_t *pid) {
-    (void)pid;
-    
+
     struct proc *p;
     struct addrspace *as;
     struct addrspace *newas;
@@ -76,21 +75,27 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
 }
 
 int sys_execv(const_userptr_t program, char **args) {
-
+    NO_WAIT = 1;
     //PART 0: copy in the program name
     char kernel_program[PATH_MAX];
     int err = 0;
-    err = copyinstr(program, kernel_program, PATH_MAX, NULL);
+    size_t len;
+    err = copyinstr(program, kernel_program, PATH_MAX, &len);
     if (err || kernel_program == NULL) {
         //free up stuff
-        return -1;
+        return err;
+    }
+    if(len == 1){ //checks if program name is NULL
+        return EINVAL;
     }
 
     //PART 1: DO THE ARGUMENTS...Find the number of arguments in args. Set count to 1 to account for null terminator
     int count = 0;
-    char* arg = NULL; 
+
+    char *arg = NULL; 
     do {
         err = copyin((const_userptr_t) &args[count], &arg, sizeof(char *));
+        if(err) return err;
         count++;
     } while (arg);
     count--;
@@ -103,23 +108,26 @@ int sys_execv(const_userptr_t program, char **args) {
 
     for (int i = 0; i < count; i++)  {
         //size of string plus null terminator
-        int size = (strlen(args[i]) + 1)*(sizeof(char));
+        if ((intptr_t)args[i] == (intptr_t)0x40000000){ // checks if the address of any of arg is invalid
+            return EFAULT;
+        }
+        int size = (strlen(args[i]) + 1) * (sizeof(char));
 
         //Too many arguments
         if (remaining_bytes - size < 0) {
             //free up stuff
-            return -1;
+            return E2BIG;
         }
 
         kernel_args[i] = kmalloc(size);
         if (kernel_args[i] == NULL) {
             //free up stuff
-            return -1;
+            return EFAULT;
         }
         err = copyinstr((const_userptr_t) args[i], kernel_args[i], size, NULL);
         if (err) {
             //free up stuff
-            return -1;
+            return err;
         }
     }
 
@@ -127,6 +135,9 @@ int sys_execv(const_userptr_t program, char **args) {
     
     //PART 3: create new address space
     struct addrspace *newaddr = as_create();
+    if(newaddr == NULL){ //Insufficient virtual memory is available. apparently does not work
+        return ENOMEM; 
+    }
     struct addrspace *oldaddr = proc_setas(newaddr);
 
     //PART 4: load executable
@@ -134,14 +145,14 @@ int sys_execv(const_userptr_t program, char **args) {
     err = vfs_open(kernel_program, O_RDONLY, 0, &exc_v);
     if (err) {
         //free up stuff
-        return -1;
+        return err;
     }
 
     vaddr_t entrypoint;
     err = load_elf(exc_v, &entrypoint);
     if (err) {
         //free up stuff
-        return -1;
+        return err;
     }
 
     //PART 5: define a new stack region for us to copy our arguments to
@@ -149,7 +160,7 @@ int sys_execv(const_userptr_t program, char **args) {
     err = as_define_stack(newaddr, &stackptr);
     if (err) {
         //free up stuff
-        return -1;
+        return err;
     }
 
     //PART 6: Copy arguments to new address space
@@ -157,7 +168,7 @@ int sys_execv(const_userptr_t program, char **args) {
     vaddr_t *arg_addresses = (vaddr_t *)kmalloc((count + 1) *sizeof(vaddr_t));
     if (arg_addresses == NULL) {
         //free up stuff
-        return -1;
+        return err;
     }
 
     //Move backwards, top of stack will have last argument
@@ -172,7 +183,7 @@ int sys_execv(const_userptr_t program, char **args) {
         err = copyoutstr((void*) kernel_args[i], (userptr_t) stackptr, arg_len, NULL);
         if (err) {
             //free up stuff
-            return -1;
+            return err;
         }
     }
     //Now, put our pointers onto the stack
@@ -181,7 +192,7 @@ int sys_execv(const_userptr_t program, char **args) {
         err = copyout((void*) &arg_addresses[i], (userptr_t) stackptr, sizeof(vaddr_t));
         if (err) {
             //free up stuff
-            return -1;
+            return err;
         }
     }
     //PART 7: Clean up the old address space and structures
