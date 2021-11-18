@@ -231,14 +231,14 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
     return 0;
 }
 
-int sys_exit(int exitcode)
+int sys_exit(int exitcode, bool trap)
 {
     int err = 0;
     pid_t pid = curproc->pid;
     if (pid < 0) {
         return -1; //proper error handling
     }
-    err = pid_exit(pid, exitcode);
+    err = pid_exit(pid, exitcode, trap);
     if (err) {
         return err;
     }

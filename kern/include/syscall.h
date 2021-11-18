@@ -69,7 +69,7 @@ int sys_chdir(const_userptr_t pathname);
 
 int sys_fork(struct trapframe *tf, pid_t *pid);
 int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret);
-int sys_exit(int exitcode);
+int sys_exit(int exitcode, bool trap);
 void sys_getpid(pid_t *pid);
 
     struct proc_arg

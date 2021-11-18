@@ -118,7 +118,7 @@ int pid_create(void);
 
 struct pid_obj *get_pid(pid_t pid_no);
 
-int pid_exit(pid_t pid_no, int exitcode);
+int pid_exit(pid_t pid_no, int exitcode, bool trap);
 
 int pid_wait(pid_t pid_no, int *status);
 

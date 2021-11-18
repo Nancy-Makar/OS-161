@@ -58,7 +58,7 @@ struct pid_obj *get_pid(pid_t pid_no) {
     return pid_obj;
 }
 
-int pid_exit(pid_t pid_no, int exitcode) {
+int pid_exit(pid_t pid_no, int exitcode, bool trap) {
     lock_acquire(table->pid_lock);
     if (table == NULL) {
         return -1;
@@ -68,12 +68,14 @@ int pid_exit(pid_t pid_no, int exitcode) {
         lock_release(table->pid_lock);
         return 0;
     }
-    if (pid_obj->exited)
+    if (trap)
     {
         cv_broadcast(pid_obj->pid_cv, table->pid_lock);
         lock_release(table->pid_lock);
         int e = _MKWAIT_SIG(exitcode);
-        return e;
+        pid_obj->exitstatus = e;
+        pid_obj->exited = true;
+        return 0;
     }
     //Set the fields for the pid_obj
     int e = _MKWAIT_EXIT(exitcode);
