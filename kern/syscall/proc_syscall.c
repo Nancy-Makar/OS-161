@@ -86,7 +86,7 @@ int sys_execv(const_userptr_t program, char **args) {
         return err;
     }
     if(len == 1){ //checks if program name is NULL
-        return EINVAL;
+        return EISDIR;
     }
 
     //PART 1: DO THE ARGUMENTS...Find the number of arguments in args. Set count to 1 to account for null terminator
