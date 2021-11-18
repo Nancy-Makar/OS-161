@@ -89,7 +89,7 @@ int sys_execv(const_userptr_t program, char **args) {
         return EISDIR;
     }
 
-    //PART 1: DO THE ARGUMENTS...Find the number of arguments in args. Set count to 1 to account for null terminator
+    //PART 1: DO THE ARGUMENTS...Count the number of arguments in the passed in array
     int count = 0;
 
     char *arg = NULL; 
@@ -107,10 +107,10 @@ int sys_execv(const_userptr_t program, char **args) {
     int remaining_bytes = ARG_MAX;
 
     for (int i = 0; i < count; i++)  {
-        //size of string plus null terminator
         if ((intptr_t)args[i] == (intptr_t)0x40000000){ // checks if the address of any of arg is invalid
             return EFAULT;
         }
+        //size of string plus null terminator
         int size = (strlen(args[i]) + 1) * (sizeof(char));
 
         //Too many arguments
@@ -177,6 +177,7 @@ int sys_execv(const_userptr_t program, char **args) {
         //Need to ensure our arguments are aligned to 4 bytes (size of vaddr_t)
         size_t arg_len = strlen(kernel_args[i]) + 1;
         size_t arg_len_adj = ((arg_len + sizeof(vaddr_t) - 1) / sizeof(vaddr_t)) * sizeof(vaddr_t);
+        //Adjust our stack pointer down by the length of our argument
         stackptr -= (arg_len_adj * sizeof(char));
         arg_addresses[i] = stackptr;
 
@@ -198,7 +199,7 @@ int sys_execv(const_userptr_t program, char **args) {
     //PART 7: Clean up the old address space and structures
     as_destroy(oldaddr);
 
-    //PART 8:
+    //PART 8: Enter the new process. 
     userptr_t argv = (userptr_t) stackptr;
     enter_new_process(count, argv, NULL, stackptr, entrypoint);
 }
