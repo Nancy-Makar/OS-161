@@ -108,6 +108,10 @@ int sys_execv(const_userptr_t program, char **args) {
 
     for (int i = 0; i < count; i++)  {
         if ((intptr_t)args[i] == (intptr_t)0x40000000){ // checks if the address of any of arg is invalid
+            for (int j = 0; j < i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
             return EFAULT;
         }
         //size of string plus null terminator
@@ -115,18 +119,27 @@ int sys_execv(const_userptr_t program, char **args) {
 
         //Too many arguments
         if (remaining_bytes - size < 0) {
-            //free up stuff
+            for (int j = 0; j < i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
             return E2BIG;
         }
 
         kernel_args[i] = kmalloc(size);
         if (kernel_args[i] == NULL) {
-            //free up stuff
+            for (int j = 0; j <= i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
             return EFAULT;
         }
         err = copyinstr((const_userptr_t) args[i], kernel_args[i], size, NULL);
         if (err) {
-            //free up stuff
+            for (int j = 0; j <= i; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
             return err;
         }
     }
@@ -136,6 +149,10 @@ int sys_execv(const_userptr_t program, char **args) {
     //PART 3: create new address space
     struct addrspace *newaddr = as_create();
     if(newaddr == NULL){ //Insufficient virtual memory is available. apparently does not work
+        for (int j = 0; j < count; j++) {
+            kfree(kernel_args[j]);
+        }
+        kfree(kernel_args);
         return ENOMEM; 
     }
     struct addrspace *oldaddr = proc_setas(newaddr);
@@ -144,14 +161,20 @@ int sys_execv(const_userptr_t program, char **args) {
     struct vnode *exc_v;
     err = vfs_open(kernel_program, O_RDONLY, 0, &exc_v);
     if (err) {
-        //free up stuff
+        for (int j = 0; j < count; j++) {
+            kfree(kernel_args[j]);
+        }
+        kfree(kernel_args);
         return err;
     }
 
     vaddr_t entrypoint;
     err = load_elf(exc_v, &entrypoint);
     if (err) {
-        //free up stuff
+        for (int j = 0; j < count; j++) {
+            kfree(kernel_args[j]);
+        }
+        kfree(kernel_args);
         return err;
     }
 
@@ -159,7 +182,10 @@ int sys_execv(const_userptr_t program, char **args) {
     vaddr_t stackptr;
     err = as_define_stack(newaddr, &stackptr);
     if (err) {
-        //free up stuff
+        for (int j = 0; j < count; j++) {
+            kfree(kernel_args[j]);
+        }
+        kfree(kernel_args);
         return err;
     }
 
@@ -167,7 +193,11 @@ int sys_execv(const_userptr_t program, char **args) {
     //Create an array structure to hold the addresses of the arguments (plus null)
     vaddr_t *arg_addresses = (vaddr_t *)kmalloc((count + 1) *sizeof(vaddr_t));
     if (arg_addresses == NULL) {
-        //free up stuff
+        for (int j = 0; j < count; j++) {
+            kfree(kernel_args[j]);
+        }
+        kfree(kernel_args);
+        kfree(arg_addresses);
         return err;
     }
 
@@ -183,7 +213,11 @@ int sys_execv(const_userptr_t program, char **args) {
 
         err = copyoutstr((void*) kernel_args[i], (userptr_t) stackptr, arg_len, NULL);
         if (err) {
-            //free up stuff
+            for (int j = 0; j < count; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
+            kfree(arg_addresses);
             return err;
         }
     }
@@ -192,13 +226,20 @@ int sys_execv(const_userptr_t program, char **args) {
         stackptr -= sizeof(vaddr_t);
         err = copyout((void*) &arg_addresses[i], (userptr_t) stackptr, sizeof(vaddr_t));
         if (err) {
-            //free up stuff
+            for (int j = 0; j < count; j++) {
+                kfree(kernel_args[j]);
+            }
+            kfree(kernel_args);
+            kfree(arg_addresses);
             return err;
         }
     }
     //PART 7: Clean up the old address space and structures
     as_destroy(oldaddr);
-
+    for (int j = 0; j <= count; j++) {
+        kfree(kernel_args[j]);
+    }
+    kfree(kernel_args);
     //PART 8: Enter the new process. 
     userptr_t argv = (userptr_t) stackptr;
     enter_new_process(count, argv, NULL, stackptr, entrypoint);
