@@ -38,7 +38,7 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     struct proc_arg *new_proc_arg = kmalloc(sizeof(struct proc_arg));
     int err;
 
-    if(forklock == NULL){
+    if(forklock == NULL){ //If a lock does ont exist, create a new lock
         forklock = lock_create("fork_lock");
     }
 
@@ -48,13 +48,16 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
     p = curthread->t_proc;
     as = p->p_addrspace;
 
+    //copy the address space
     as_copy(as, &newas);
 
+    //create a new child procees + copy the filetable and working directory of the current parent process
     struct proc *child_proc = proc_fork("child process");
 
     child_proc->pid = get_next_pid();
     *pid = child_proc->pid;
     
+    //copy and tweak the trapframe
     memcpy(newtf, tf, sizeof(struct trapframe));
 
     new_proc_arg->as = newas;
@@ -62,8 +65,9 @@ int sys_fork(struct trapframe *tf,  pid_t *pid) {
 
     newtf->tf_v0 = 0;
     newtf->tf_a3 = 0;
-    newtf->tf_epc += 4;
+    newtf->tf_epc += 4; //incerement epc so the child process does not keep forking
 
+    //copy kernel thread
     err = thread_fork("process fork", child_proc, enter_forked_process, new_proc_arg, 0);
     if(err){
         lock_release(forklock);
@@ -148,7 +152,7 @@ int sys_execv(const_userptr_t program, char **args) {
     
     //PART 3: create new address space
     struct addrspace *newaddr = as_create();
-    if(newaddr == NULL){ //Insufficient virtual memory is available. apparently does not work
+    if(newaddr == NULL){ //Insufficient virtual memory is available.
         for (int j = 0; j < count; j++) {
             kfree(kernel_args[j]);
         }
@@ -275,11 +279,12 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *ret)
         return ESRCH;
     }
     
-
+    //wait for the process corresponding to the pid number to exit
     err = pid_wait(pid, status);
     if (err) {
         return err;
     }
+    //collect the status of the child process that the curthread has been waiting on
     *ret = get_pid(pid)->exitstatus;
     return 0;
 }
@@ -288,18 +293,14 @@ int sys_exit(int exitcode, bool trap)
 {
     int err = 0;
     pid_t pid = curproc->pid;
-    if (pid < 0) {
-        return -1; //proper error handling
-    }
+
+    //signal to all threads on the wait channel that are waiting for curthread to exit
     err = pid_exit(pid, exitcode, trap);
     if (err) {
         return err;
     }
-    if(curproc != NULL){     //TA said we should destroy process to prevent memory leaks
-    if (threadarray_num(&curproc->p_threads) == 0)
-    proc_destroy(curproc);
-    }
-    thread_exit();
+
+    thread_exit(); //exit the current thread
     
     return 0; //We should never get here
 }

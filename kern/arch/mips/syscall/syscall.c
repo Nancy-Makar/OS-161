@@ -253,11 +253,11 @@ syscall(struct trapframe *tf)
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(void *proc_args, unsigned long taylor)
+enter_forked_process(void *proc_args, unsigned long t)
 {
-	(void) taylor;
+	(void) t;
 
-	struct proc_arg *new_proc_arg = (struct proc_arg*) proc_args; //Will this work?
+	struct proc_arg *new_proc_arg = (struct proc_arg*) proc_args;
 
 
 
@@ -269,8 +269,7 @@ enter_forked_process(void *proc_args, unsigned long taylor)
 
 	struct trapframe tf_stack; // put the trapframe on stack
 	tf_stack = *tf;
-	// tf_stack.tf_v0 = 0;
-	// tf_stack.tf_epc += 4;
 
+	//wrap to user mode
 	mips_usermode(&tf_stack);
 }

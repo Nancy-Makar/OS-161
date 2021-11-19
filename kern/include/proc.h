@@ -114,14 +114,19 @@ struct addrspace *proc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
 
+/*Create a new pid table*/
 int pid_create(void);
 
+/*Get the process corresponding to the pid number*/
 struct pid_obj *get_pid(pid_t pid_no);
 
+/*Exit the process corresponding to the pid number, call to this function must be folowed by thread_exit()*/
 int pid_exit(pid_t pid_no, int exitcode, bool trap);
 
+/*Helper function for waitpid*/
 int pid_wait(pid_t pid_no, int *status);
 
+/*Get the next available bid*/
 pid_t get_next_pid(void);
 
 

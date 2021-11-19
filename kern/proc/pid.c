@@ -27,12 +27,8 @@ int pid_create(void) {
 }
 
 pid_t get_next_pid(void) {
-    int err;
     if(table == NULL){
-        err = pid_create();
-        if(err){
-            return -1; //TODO: proper error handling
-        }
+        pid_create();
     }
     lock_acquire(table->pid_lock);
     for (int i = PID_MIN; i <= PID_MAX; i++)
@@ -49,7 +45,7 @@ pid_t get_next_pid(void) {
         }
     }
     lock_release(table->pid_lock);
-    return -1; //TODO: proper error handling
+    return EMPROC; 
 }
 
 struct pid_obj *get_pid(pid_t pid_no) {
@@ -61,14 +57,14 @@ struct pid_obj *get_pid(pid_t pid_no) {
 int pid_exit(pid_t pid_no, int exitcode, bool trap) {
     lock_acquire(table->pid_lock);
     if (table == NULL) {
-        return -1;
+        return ESRCH; 
     }
     struct pid_obj *pid_obj = get_pid(pid_no);
     if (pid_obj == NULL) {
         lock_release(table->pid_lock);
         return 0;
     }
-    if (trap)
+    if (trap) //trap determines wheather a thread is being killed or exiting succesfully
     {
         int e = _MKWAIT_SIG(exitcode);
         pid_obj->exitstatus = e;
@@ -92,9 +88,8 @@ int pid_wait(pid_t pid_no, int *status) {
     struct pid_obj *pid_obj = get_pid(pid_no);
     int err;
     if (pid_obj == NULL) {
-        return ESRCH; //TODO: error handle
+        return ESRCH; 
     }
-    
     //If pid has not already exited
     while (!pid_obj->exited) {
         cv_wait(pid_obj->pid_cv, table->pid_lock);
