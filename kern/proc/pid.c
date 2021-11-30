@@ -62,7 +62,7 @@ int pid_exit(pid_t pid_no, int exitcode, bool trap) {
     struct pid_obj *pid_obj = get_pid(pid_no);
     if (pid_obj == NULL) {
         lock_release(table->pid_lock);
-        return 0;
+        return ESRCH;
     }
     if (trap) //trap determines wheather a thread is being killed or exiting succesfully
     {
