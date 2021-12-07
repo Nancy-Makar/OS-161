@@ -35,5 +35,3 @@ options sfs			# Always use the file system
 				# synchronization problems.
 
 options vm
-defoption   vm
-machine mips optfile vm    arch/mips/vm/vm.c

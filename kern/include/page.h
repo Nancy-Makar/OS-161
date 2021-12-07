@@ -3,17 +3,17 @@
 #include <vm.h>
 #include <mainbus.h>
 
-struct page_table{
-    struct page_table_obj *pages[1000];
+struct coremap 
+{
+    bool in_use;
+    bool is_first;
+    int count;
 };
 
-struct page_table_obj{
-    vaddr_t virtual_address;
-    paddr_t physical_address;
-};
+void coremap_init(void);
 
-struct core_map{
-    struct lock *p_addr_lk;
-    paddr_t **p_array;
-    bool initialized;
-};
+vaddr_t get_first_free_page(int npages);
+
+void free_page(vaddr_t v_page_addr);
+
+bool is_initialized(void);

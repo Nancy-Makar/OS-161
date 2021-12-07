@@ -49,6 +49,7 @@
 #include <syscall.h>
 #include <test.h>
 #include <version.h>
+#include <page.h>
 #include "autoconf.h"  // for pseudoconfig
 
 
@@ -125,6 +126,7 @@ boot(void)
 
 	/* Late phase of initialization. */
 	vm_bootstrap();
+	coremap_init();
 	kprintf_bootstrap();
 	thread_start_cpus();
 
