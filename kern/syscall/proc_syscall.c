@@ -304,3 +304,9 @@ int sys_exit(int exitcode, bool trap)
     
     return 0; //We should never get here
 }
+
+// int sys_sbrk(intptr_t amount, vaddr_t *ret){
+//     if(amount == 0){
+//         ret = 
+//     }
+// }

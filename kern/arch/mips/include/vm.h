@@ -84,6 +84,8 @@
  * grows downwards.
  */
 #define USERSTACK     USERSPACETOP
+#define USERSTACKSIZE	(256*PAGE_SIZE)
+#define USERSTACKBASE	(USERSTACK-USERSTACKSIZE)
 
 /*
  * Interface to the low-level module that looks after the amount of

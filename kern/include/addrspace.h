@@ -59,6 +59,8 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
         /* Put stuff here for your VM system */
+        unsigned npages;
+        vaddr_t first_free_page;
 #endif
 };
 

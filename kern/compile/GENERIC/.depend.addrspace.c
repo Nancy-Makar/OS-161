@@ -8,4 +8,5 @@ addrspace.o: ../../vm/addrspace.c ../../include/types.h \
  ../../include/array.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/limits.h \
- ../../include/kern/limits.h ../../include/synch.h
+ ../../include/kern/limits.h ../../include/synch.h ../../include/page.h \
+ ../../include/mainbus.h ../../include/spl.h includelinks/mips/tlb.h

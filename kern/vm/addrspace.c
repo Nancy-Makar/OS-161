@@ -33,6 +33,9 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <page.h>
+#include <spl.h>
+#include <mips/tlb.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -45,14 +48,19 @@ as_create(void)
 {
 	struct addrspace *as;
 
+
+
 	as = kmalloc(sizeof(struct addrspace));
 	if (as == NULL) {
 		return NULL;
 	}
-
+	
 	/*
 	 * Initialize as needed.
 	 */
+
+	as->npages = 0;
+	as->first_free_page = 0; 
 
 	return as;
 }
@@ -67,13 +75,22 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
-
 	/*
 	 * Write this.
 	 */
+	newas->npages = old->npages;
+	newas->first_free_page = get_first_free_page(old->npages);
 
-	(void)old;
+	if (as_prepare_load(newas)) {
+		as_destroy(newas);
+		return ENOMEM;
+	}
+	KASSERT(newas->npages != 0);
+	KASSERT(newas->first_free_page != 0);
 
+	memmove((void *)PADDR_TO_KVADDR(newas->first_free_page),
+		(const void *)PADDR_TO_KVADDR(old->first_free_page),
+		old->npages*PAGE_SIZE);
 
 	*ret = newas;
 	return 0;
@@ -85,7 +102,7 @@ as_destroy(struct addrspace *as)
 	/*
 	 * Clean up as needed.
 	 */
-
+	free_page(as->first_free_page);
 	kfree(as);
 }
 
@@ -102,10 +119,30 @@ as_activate(void)
 		 */
 		return;
 	}
-
+	uint32_t		elo;
+	uint32_t		ehi;
+	paddr_t			paddr;
 	/*
 	 * Write this.
 	 */
+	int spl, i;
+	spl = splhigh(); 
+
+
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_read( &ehi, &elo, i);
+		if(elo & TLBLO_VALID) {
+		//get physical address
+		paddr = elo & TLBLO_PPAGE;
+
+		//free core map here
+		free_page(paddr); // is this the right way to free coremap?
+
+
+		tlb_write( TLBHI_INVALID(i), TLBLO_INVALID() , i);
+		}
+	}
+	splx(spl);
 }
 
 void
@@ -142,6 +179,18 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+
+
+	KASSERT(as->npages != 0); //need to be in as_define region
+	KASSERT(as->first_free_page != 0);
+	//npages = (sz + PAGE_SIZE - 1)/PAGE_SIZE;
+
+	sz = ROUNDUP(sz, PAGE_SIZE);
+	unsigned npages = sz/PAGE_SIZE;
+	vaddr_t first_free_page = get_first_free_page(npages);
+
+	as->npages = npages;
+	as->first_free_page = first_free_page;
 	return ENOSYS;
 }
 
@@ -152,7 +201,11 @@ as_prepare_load(struct addrspace *as)
 	 * Write this.
 	 */
 
-	(void)as;
+	return as_define_region(as, 0, 0, 0, 0, 0); //not sure what to pass as sz
+
+
+	
+	//(void)as;
 	return 0;
 }
 
@@ -175,7 +228,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	 */
 
 	(void)as;
-
+	as_define_region(as, USERSTACKBASE, USERSTACKSIZE, 0, 0, 0 );
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
